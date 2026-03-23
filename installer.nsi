@@ -1,76 +1,116 @@
-; Echelon Windows Installer Script
+; ═══════════════════════════════════════════════════════
+; Echelon Windows Installer
 ; Created by Zero
+; ═══════════════════════════════════════════════════════
 
-!define APP_NAME "Echelon"
-!define APP_VERSION "2.0.0"
+Unicode True
+!define APP_NAME      "Echelon"
+!define APP_VERSION   "2.0.0"
 !define APP_PUBLISHER "Zero"
-!define APP_URL "https://github.com/zeroxdev/echelon"
-!define APP_EXE "Echelon.exe"
-!define INSTALL_DIR "$PROGRAMFILES64\Echelon"
+!define APP_EXE       "Echelon.exe"
+!define INSTALL_DIR   "$PROGRAMFILES64\Echelon"
+!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon"
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "Echelon-Setup.exe"
 InstallDir "${INSTALL_DIR}"
 InstallDirRegKey HKLM "Software\Echelon" "Install_Dir"
 RequestExecutionLevel admin
+SetCompressor /SOLID lzma
 BrandingText "Echelon by Zero"
+ShowInstDetails show
 
-; Modern UI
+; Modern UI 2
 !include "MUI2.nsh"
+!include "FileFunc.nsh"
+
+; UI Settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "assets\icons\echelon.ico"
-!define MUI_UNICON "assets\icons\echelon.ico"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "assets\icons\icon_256.png"
+!define MUI_ICON                          "assets\icons\echelon.ico"
+!define MUI_UNICON                        "assets\icons\echelon.ico"
+!define MUI_WELCOMEFINISHPAGE_BITMAP      "assets\icons\installer_banner.bmp"
 !define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "assets\icons\icon_128.png"
+!define MUI_HEADERIMAGE_BITMAP            "assets\icons\installer_header.bmp"
+!define MUI_HEADERIMAGE_RIGHT
+!define MUI_WELCOMEPAGE_TITLE             "Welcome to Echelon v${APP_VERSION}"
+!define MUI_WELCOMEPAGE_TEXT              "Echelon lets you swap your face in real-time during any video call.$\r$\n$\r$\nWorks with Zoom, Google Meet, Discord, WhatsApp, and Teams.$\r$\n$\r$\nCreated by Zero."
+!define MUI_FINISHPAGE_RUN                "$INSTDIR\${APP_EXE}"
+!define MUI_FINISHPAGE_RUN_TEXT           "Launch Echelon now"
+!define MUI_FINISHPAGE_SHOWREADME         ""
+!define MUI_FINISHPAGE_LINK               "github.com/gengenesix/echelon"
+!define MUI_FINISHPAGE_LINK_LOCATION      "https://github.com/gengenesix/echelon"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
-!define MUI_FINISHPAGE_RUN_TEXT "Launch Echelon now"
 !insertmacro MUI_PAGE_FINISH
 
-; Uninstall pages
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 
 !insertmacro MUI_LANGUAGE "English"
 
-; Installation
+; ── Main Install ─────────────────────────────────────
 Section "Echelon" SecMain
+  SectionIn RO  ; Required section
+
   SetOutPath "$INSTDIR"
+
+  ; Copy all files from PyInstaller output
   File /r "dist\Echelon\*.*"
 
-  ; Write registry for uninstaller
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon" "DisplayName" "Echelon"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon" "UninstallString" "$INSTDIR\uninstall.exe"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon" "DisplayIcon" "$INSTDIR\${APP_EXE}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon" "Publisher" "${APP_PUBLISHER}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon" "DisplayVersion" "${APP_VERSION}"
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon" "NoModify" 1
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon" "NoRepair" 1
+  ; Write registry entries
+  WriteRegStr   HKLM "${UNINSTALL_KEY}" "DisplayName"     "Echelon"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}" "UninstallString"  '"$INSTDIR\uninstall.exe"'
+  WriteRegStr   HKLM "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}" "DisplayIcon"     "$INSTDIR\${APP_EXE}"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}" "Publisher"       "${APP_PUBLISHER}"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}" "DisplayVersion"  "${APP_VERSION}"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}" "URLInfoAbout"    "https://github.com/gengenesix/echelon"
+  WriteRegDWORD HKLM "${UNINSTALL_KEY}" "NoModify"        1
+  WriteRegDWORD HKLM "${UNINSTALL_KEY}" "NoRepair"        1
 
-  ; Start menu shortcut
-  CreateDirectory "$SMPROGRAMS\Echelon"
-  CreateShortcut "$SMPROGRAMS\Echelon\Echelon.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
-  CreateShortcut "$SMPROGRAMS\Echelon\Uninstall.lnk" "$INSTDIR\uninstall.exe"
-
-  ; Desktop shortcut
-  CreateShortcut "$DESKTOP\Echelon.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
+  ; Get install size
+  ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+  IntFmt $0 "0x%08X" $0
+  WriteRegDWORD HKLM "${UNINSTALL_KEY}" "EstimatedSize" "$0"
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
-; Uninstaller
+; ── Start Menu ───────────────────────────────────────
+Section "Start Menu Shortcuts"
+  CreateDirectory "$SMPROGRAMS\Echelon"
+  CreateShortcut  "$SMPROGRAMS\Echelon\Echelon.lnk"    "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
+  CreateShortcut  "$SMPROGRAMS\Echelon\Uninstall.lnk"  "$INSTDIR\uninstall.exe"
+SectionEnd
+
+; ── Desktop Shortcut ─────────────────────────────────
+Section "Desktop Shortcut"
+  CreateShortcut "$DESKTOP\Echelon.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
+SectionEnd
+
+; ── Uninstaller ──────────────────────────────────────
 Section "Uninstall"
+  ; Kill running instance
+  ExecWait 'taskkill /F /IM "${APP_EXE}" /T' $0
+
+  ; Remove files
   RMDir /r "$INSTDIR"
+
+  ; Remove shortcuts
   Delete "$SMPROGRAMS\Echelon\Echelon.lnk"
   Delete "$SMPROGRAMS\Echelon\Uninstall.lnk"
-  RMDir "$SMPROGRAMS\Echelon"
+  RMDir  "$SMPROGRAMS\Echelon"
   Delete "$DESKTOP\Echelon.lnk"
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Echelon"
+
+  ; Remove registry entries
+  DeleteRegKey HKLM "${UNINSTALL_KEY}"
   DeleteRegKey HKLM "Software\Echelon"
+
+  ; Remove user data (optional — ask user)
+  MessageBox MB_YESNO "Remove Echelon settings and saved faces?" IDNO skip_userdata
+    RMDir /r "$APPDATA\Echelon"
+  skip_userdata:
 SectionEnd

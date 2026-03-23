@@ -1,14 +1,16 @@
-name: Build Echelon — All Platforms
+name: Build Echelon — Windows & Linux
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:  # Manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
 
-  # ─── WINDOWS ──────────────────────────────────────────────────
+  # ═══════════════════════════════════════════
+  # WINDOWS — .exe installer via NSIS
+  # ═══════════════════════════════════════════
   build-windows:
     runs-on: windows-latest
     steps:
@@ -18,103 +20,87 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install PyQt6 opencv-python onnxruntime insightface Pillow psutil requests tqdm pyinstaller
-          # pyvirtualcam is Linux-only, skip on Windows
+          pip install PyQt6==6.7.0 opencv-python-headless onnxruntime insightface Pillow psutil requests tqdm albumentations scikit-learn scipy matplotlib pyinstaller
+        shell: cmd
+
+      - name: Download models
+        run: |
+          python -c "
+          import os, requests
+          from pathlib import Path
+          # Models are downloaded on first launch — we just ensure dirs exist
+          Path('models/models/buffalo_l').mkdir(parents=True, exist_ok=True)
+          print('Model dirs ready')
+          "
+        shell: cmd
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller `
-            --name=Echelon `
-            --onedir `
-            --windowed `
-            --icon=assets/icons/echelon.ico `
-            --add-data="assets/styles/theme.qss;assets/styles" `
-            --add-data="assets/icons;assets/icons" `
-            --hidden-import=PyQt6.QtCore `
-            --hidden-import=PyQt6.QtGui `
-            --hidden-import=PyQt6.QtWidgets `
-            --hidden-import=cv2 `
-            --hidden-import=onnxruntime `
-            --hidden-import=insightface `
-            --clean `
-            --noconfirm `
+          pyinstaller ^
+            --name=Echelon ^
+            --onedir ^
+            --windowed ^
+            --icon=assets\icons\echelon.ico ^
+            --add-data="assets\styles\theme.qss;assets\styles" ^
+            --add-data="assets\icons;assets\icons" ^
+            --add-data="data;data" ^
+            --hidden-import=PyQt6.QtCore ^
+            --hidden-import=PyQt6.QtGui ^
+            --hidden-import=PyQt6.QtWidgets ^
+            --hidden-import=PyQt6.sip ^
+            --hidden-import=cv2 ^
+            --hidden-import=numpy ^
+            --hidden-import=onnxruntime ^
+            --hidden-import=onnxruntime.capi._pybind_state ^
+            --hidden-import=insightface ^
+            --hidden-import=insightface.app ^
+            --hidden-import=insightface.model_zoo ^
+            --hidden-import=matplotlib ^
+            --hidden-import=matplotlib.pyplot ^
+            --hidden-import=matplotlib.backends.backend_agg ^
+            --hidden-import=PIL ^
+            --hidden-import=PIL.Image ^
+            --hidden-import=psutil ^
+            --hidden-import=requests ^
+            --hidden-import=tqdm ^
+            --hidden-import=sklearn ^
+            --hidden-import=scipy ^
+            --hidden-import=scipy.spatial ^
+            --hidden-import=albumentations ^
+            --hidden-import=unittest ^
+            --hidden-import=unittest.mock ^
+            --hidden-import=numpy.testing ^
+            --collect-all=insightface ^
+            --collect-all=onnxruntime ^
+            --noconfirm ^
             main.py
-        shell: pwsh
+        shell: cmd
+
+      - name: Install NSIS
+        run: |
+          choco install nsis -y
+        shell: cmd
 
       - name: Create NSIS installer
-        uses: joncloud/makensis-action@v4
-        with:
-          script-file: installer.nsi
+        run: |
+          makensis installer.nsi
+        shell: cmd
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: Echelon-Windows-Installer
+          name: Echelon-Windows
           path: Echelon-Setup.exe
+          retention-days: 30
 
-  # ─── MACOS ────────────────────────────────────────────────────
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install PyQt6 opencv-python onnxruntime insightface Pillow psutil requests tqdm pyinstaller
-
-      - name: Build .app with PyInstaller
-        run: |
-          pyinstaller \
-            --name=Echelon \
-            --onedir \
-            --windowed \
-            --icon=assets/icons/icon_1024.png \
-            --osx-bundle-identifier=com.zero.echelon \
-            --add-data="assets/styles/theme.qss:assets/styles" \
-            --add-data="assets/icons:assets/icons" \
-            --hidden-import=PyQt6.QtCore \
-            --hidden-import=PyQt6.QtGui \
-            --hidden-import=PyQt6.QtWidgets \
-            --hidden-import=cv2 \
-            --hidden-import=onnxruntime \
-            --hidden-import=insightface \
-            --clean \
-            --noconfirm \
-            main.py
-
-      - name: Create DMG
-        run: |
-          brew install create-dmg
-          create-dmg \
-            --volname "Echelon" \
-            --volicon "assets/icons/icon_1024.png" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --icon "Echelon.app" 175 120 \
-            --hide-extension "Echelon.app" \
-            --app-drop-link 425 120 \
-            --background "assets/icons/icon_1024.png" \
-            "Echelon-macOS.dmg" \
-            "dist/Echelon.app"
-
-      - name: Upload macOS DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: Echelon-macOS-DMG
-          path: Echelon-macOS.dmg
-
-  # ─── LINUX ────────────────────────────────────────────────────
+  # ═══════════════════════════════════════════
+  # LINUX — AppImage + .deb
+  # ═══════════════════════════════════════════
   build-linux:
     runs-on: ubuntu-22.04
     steps:
@@ -124,71 +110,227 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install system deps
+      - name: Install system dependencies
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y libgl1 libglib2.0-0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 libxkbcommon-x11-0
+          sudo apt-get install -y \
+            libgl1 libglib2.0-0 \
+            libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-xfixes0 libxkbcommon-x11-0 \
+            libdbus-1-3 libfontconfig1 libfreetype6 \
+            fuse libfuse2 dpkg-dev
 
-      - name: Install Python deps
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install PyQt6 opencv-python onnxruntime insightface Pillow psutil requests tqdm pyvirtualcam pyinstaller
+          pip install PyQt6==6.7.0 opencv-python-headless onnxruntime insightface Pillow psutil requests tqdm albumentations scikit-learn scipy matplotlib pyvirtualcam pyinstaller
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller echelon.spec --clean --noconfirm
-
-      - name: Build .deb package
-        run: |
-          chmod +x package_deb.sh
-          bash package_deb.sh
+          pyinstaller \
+            --name=Echelon \
+            --onedir \
+            --windowed \
+            --add-data="assets/styles/theme.qss:assets/styles" \
+            --add-data="assets/icons:assets/icons" \
+            --add-data="data:data" \
+            --hidden-import=PyQt6.QtCore \
+            --hidden-import=PyQt6.QtGui \
+            --hidden-import=PyQt6.QtWidgets \
+            --hidden-import=PyQt6.sip \
+            --hidden-import=cv2 \
+            --hidden-import=numpy \
+            --hidden-import=onnxruntime \
+            --hidden-import=onnxruntime.capi._pybind_state \
+            --hidden-import=insightface \
+            --hidden-import=insightface.app \
+            --hidden-import=insightface.model_zoo \
+            --hidden-import=matplotlib \
+            --hidden-import=matplotlib.pyplot \
+            --hidden-import=matplotlib.backends.backend_agg \
+            --hidden-import=PIL \
+            --hidden-import=PIL.Image \
+            --hidden-import=psutil \
+            --hidden-import=requests \
+            --hidden-import=tqdm \
+            --hidden-import=sklearn \
+            --hidden-import=scipy \
+            --hidden-import=scipy.spatial \
+            --hidden-import=albumentations \
+            --hidden-import=unittest \
+            --hidden-import=unittest.mock \
+            --hidden-import=numpy.testing \
+            --collect-all=insightface \
+            --collect-all=onnxruntime \
+            --noconfirm \
+            main.py
 
       - name: Build AppImage
         run: |
-          chmod +x package_appimage.sh
-          bash package_appimage.sh
+          # Download appimagetool
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+          # Create AppDir structure
+          mkdir -p Echelon.AppDir/usr/bin
+          mkdir -p Echelon.AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p Echelon.AppDir/usr/share/applications
+
+          # Copy PyInstaller output
+          cp -r dist/Echelon/* Echelon.AppDir/usr/bin/
+
+          # AppRun entry point
+          cat > Echelon.AppDir/AppRun << 'APPRUN'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/bin:${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          export ALBUMENTATIONS_DISABLE_VERSION_CHECK=1
+          export NO_ALBUMENTATIONS_UPDATE=1
+          export MPLBACKEND=Agg
+          export MPLCONFIGDIR="${HOME}/.cache/matplotlib"
+          exec "${HERE}/usr/bin/Echelon" "$@"
+          APPRUN
+          chmod +x Echelon.AppDir/AppRun
+
+          # Icon + desktop file
+          cp assets/icons/icon_256.png Echelon.AppDir/echelon.png
+          cp assets/icons/icon_256.png Echelon.AppDir/usr/share/icons/hicolor/256x256/apps/echelon.png
+
+          cat > Echelon.AppDir/echelon.desktop << 'DESK'
+          [Desktop Entry]
+          Name=Echelon
+          Comment=Real-time face swap for video calls — by Zero
+          Exec=Echelon
+          Icon=echelon
+          Terminal=false
+          Type=Application
+          Categories=Video;AudioVideo;
+          DESK
+
+          cp Echelon.AppDir/echelon.desktop Echelon.AppDir/usr/share/applications/
+
+          # Build AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage Echelon.AppDir Echelon-x86_64.AppImage
+          chmod +x Echelon-x86_64.AppImage
+          echo "AppImage built: $(du -sh Echelon-x86_64.AppImage)"
+
+      - name: Build .deb package
+        run: |
+          VERSION="2.0.0"
+          PKG="echelon_${VERSION}_amd64"
+          mkdir -p ${PKG}/DEBIAN
+          mkdir -p ${PKG}/opt/echelon
+          mkdir -p ${PKG}/usr/local/bin
+          mkdir -p ${PKG}/usr/share/applications
+          mkdir -p ${PKG}/usr/share/icons/hicolor/256x256/apps
+
+          cat > ${PKG}/DEBIAN/control << EOF
+          Package: echelon
+          Version: ${VERSION}
+          Section: video
+          Priority: optional
+          Architecture: amd64
+          Depends: libgl1, libglib2.0-0, libxcb-xinerama0
+          Maintainer: Zero <zero@echelon.app>
+          Description: Real-time face swap for video calls
+           Echelon lets you swap your face in real-time during video calls.
+           Works with Zoom, Google Meet, Discord, WhatsApp, and Teams.
+           Created by Zero.
+          EOF
+
+          cat > ${PKG}/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          modprobe v4l2loopback devices=1 video_nr=10 card_label="Echelon Camera" exclusive_caps=1 2>/dev/null || true
+          update-desktop-database /usr/share/applications 2>/dev/null || true
+          gtk-update-icon-cache -f /usr/share/icons/hicolor/ 2>/dev/null || true
+          echo "Echelon installed! Find it in your app menu or run: echelon"
+          EOF
+          chmod 755 ${PKG}/DEBIAN/postinst
+
+          cp -r dist/Echelon/* ${PKG}/opt/echelon/
+
+          cat > ${PKG}/usr/local/bin/echelon << 'EOF'
+          #!/bin/bash
+          export ALBUMENTATIONS_DISABLE_VERSION_CHECK=1
+          export NO_ALBUMENTATIONS_UPDATE=1
+          export MPLBACKEND=Agg
+          export MPLCONFIGDIR="${HOME}/.cache/matplotlib"
+          cd /opt/echelon
+          exec ./Echelon "$@"
+          EOF
+          chmod +x ${PKG}/usr/local/bin/echelon
+
+          cat > ${PKG}/usr/share/applications/echelon.desktop << 'EOF'
+          [Desktop Entry]
+          Name=Echelon
+          Comment=Real-time face swap for video calls — by Zero
+          Exec=/usr/local/bin/echelon
+          Icon=echelon
+          Terminal=false
+          Type=Application
+          Categories=Video;AudioVideo;Graphics;
+          StartupNotify=false
+          EOF
+
+          cp assets/icons/icon_256.png ${PKG}/usr/share/icons/hicolor/256x256/apps/echelon.png
+          dpkg-deb --build ${PKG}
+          echo "Deb built: $(du -sh ${PKG}.deb)"
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
           name: Echelon-Linux
           path: |
-            echelon_2.0.0_amd64.deb
             Echelon-x86_64.AppImage
+            echelon_2.0.0_amd64.deb
+          retention-days: 30
 
-  # ─── RELEASE ──────────────────────────────────────────────────
+  # ═══════════════════════════════════════════
+  # RELEASE — attach all artifacts
+  # ═══════════════════════════════════════════
   create-release:
-    needs: [build-windows, build-macos, build-linux]
+    needs: [build-windows, build-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Echelon ${{ github.ref_name }}
+          name: "Echelon ${{ github.ref_name }}"
           body: |
             ## Echelon ${{ github.ref_name }}
-            Real-time face swap for video calls. Created by **Zero**.
+            **Real-time face swap for video calls. Created by Zero.**
 
-            ### Downloads
-            | Platform | File | Notes |
+            ---
+
+            ### 📥 Download
+
+            | Platform | File | How to install |
             |---|---|---|
-            | 🪟 Windows | `Echelon-Setup.exe` | Double-click to install |
-            | 🍎 macOS | `Echelon-macOS.dmg` | Drag to Applications |
-            | 🐧 Linux | `echelon_2.0.0_amd64.deb` | `sudo dpkg -i` |
-            | 🐧 Linux | `Echelon-x86_64.AppImage` | No install needed |
+            | 🪟 **Windows** | `Echelon-Setup.exe` | Double-click → Next → Finish |
+            | 🐧 **Linux (any distro)** | `Echelon-x86_64.AppImage` | `chmod +x` then double-click |
+            | 🐧 **Ubuntu/Debian** | `echelon_2.0.0_amd64.deb` | `sudo dpkg -i echelon_2.0.0_amd64.deb` |
+
+            ### ✅ Works offline — copy to USB, install anywhere
 
             ### Requirements
             - 8GB RAM minimum
             - Webcam
-            - Linux: v4l2loopback kernel module
+            - Linux: v4l2loopback for virtual camera (`sudo apt install v4l2loopback-dkms`)
 
           files: |
-            Echelon-Windows-Installer/Echelon-Setup.exe
-            Echelon-macOS-DMG/Echelon-macOS.dmg
-            Echelon-Linux/echelon_2.0.0_amd64.deb
+            Echelon-Windows/Echelon-Setup.exe
             Echelon-Linux/Echelon-x86_64.AppImage
+            Echelon-Linux/echelon_2.0.0_amd64.deb
+          draft: false
+          prerelease: false
