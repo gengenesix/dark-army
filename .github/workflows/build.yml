@@ -72,7 +72,13 @@ jobs:
           --hidden-import=unittest.mock
           --hidden-import=numpy.testing
           --collect-all=insightface
-          --collect-all=onnxruntime
+          --collect-submodules=onnxruntime.capi
+          --exclude-module=onnx.reference
+          --exclude-module=onnxruntime.quantization
+          --exclude-module=onnxruntime.transformers
+          --exclude-module=onnxruntime.training
+          --exclude-module=sympy
+          --exclude-module=Cython
           --noconfirm
           main.py
 
