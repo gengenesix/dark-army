@@ -3,7 +3,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                               QLabel, QPushButton, QMessageBox, QSizePolicy,
                               QFrame, QApplication, QComboBox)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut, QPixmap, QIcon, QColor
 import cv2
 
@@ -72,7 +72,8 @@ class MainWindow(QMainWindow):
         self._setup_ui()
         self._setup_connections()
         self._setup_hotkeys()
-        self._load_cameras()
+        # Delay camera scan until AFTER window is visible — speeds up startup
+        QTimer.singleShot(500, self._load_cameras)
         self._refresh_gallery()
         self._refresh_presets()
 
