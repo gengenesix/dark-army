@@ -360,9 +360,9 @@ class MainWindow(QMainWindow):
                 "Please upload a face photo before starting.")
             return
         # Update pinned buttons
+        self._start_btn_main.setText("⏳  LOADING...")
         self._start_btn_main.setEnabled(False)
         self._stop_btn_main.setEnabled(True)
-        self._start_btn_main.setText("⏳  LOADING..."); self._start_btn_main.setEnabled(False)
         self.config.camera_device_id = self.controls_panel._cam_combo.currentData() or 0
         self.pipeline = EchelonPipeline(self.config, self.hw_info)
         self.pipeline.set_source_face(self._source_face)
@@ -383,9 +383,9 @@ class MainWindow(QMainWindow):
             self.pipeline.stop()
             self.pipeline = None
         # Update pinned buttons
+        self._start_btn_main.setText("▶  START")
         self._start_btn_main.setEnabled(True)
         self._stop_btn_main.setEnabled(False)
-        self._start_btn_main.setText("▶  START"); self._start_btn_main.setEnabled(True); self._stop_btn_main.setEnabled(False)
         self.preview_panel.set_active(False)
         self.status_bar_widget.update_status("Idle")
         self.status_bar_widget.update_frame_skip(0)
