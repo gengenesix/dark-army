@@ -75,23 +75,27 @@ FunctionEnd
 Section "Echelon" SecMain
   SectionIn RO
 
-  ; Kill any running Echelon instance before extracting (prevents "file locked" errors on reinstall)
+  ; ── STEP 1: Kill any running Echelon instances BEFORE touching files ──
+  ; This prevents "Error opening file for writing" on reinstall/upgrade
+  DetailPrint "Stopping Echelon if running..."
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXE}" /T'
   nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "Echelon.exe" /T'
+  ; Wait for OS to release all file handles before we overwrite
   Sleep 1500
 
-  ; Install app files
-  SetOutPath "$INSTDIR"
+  ; ── STEP 2: Install app files ──
   SetOverwrite on
+  SetOutPath "$INSTDIR"
   File /r "dist\Echelon\*.*"
 
-  ; Install VC++ redist
+  ; ── STEP 3: Install VC++ redist ──
   SetOutPath "$INSTDIR\_redist"
   File "vc_redist.x64.exe"
 
-  ; Run VC++ check/install
+  ; ── STEP 4: Run VC++ check/install (must be AFTER file is copied above) ──
   Call CheckVCRedist
 
-  ; Write registry
+  ; ── STEP 5: Write registry ──
   WriteRegStr   HKLM "${UNINSTALL_KEY}" "DisplayName"     "Echelon"
   WriteRegStr   HKLM "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
   WriteRegStr   HKLM "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
@@ -123,7 +127,8 @@ SectionEnd
 
 ; ── Uninstaller ──────────────────────────────────────
 Section "Uninstall"
-  ExecWait 'taskkill /F /IM "${APP_EXE}" /T'
+  ; Kill process before removing files
+  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXE}" /T'
   Sleep 1000
   RMDir /r "$INSTDIR"
   Delete "$SMPROGRAMS\Echelon\Echelon.lnk"

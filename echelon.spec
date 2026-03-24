@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-block_cipher = None
+
 app_name = 'Echelon'
 
 a = Analysis(
@@ -13,9 +13,11 @@ a = Analysis(
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore', 'PyQt6.QtGui', 'PyQt6.QtWidgets', 'PyQt6.sip',
-        # OpenCV / NumPy
-        'cv2', 'numpy', 'numpy.core._multiarray_umath',
-        # ONNX
+        # OpenCV
+        'cv2', 'cv2.dnn',
+        # NumPy
+        'numpy', 'numpy.core._multiarray_umath',
+        # ONNX Runtime
         'onnxruntime', 'onnxruntime.capi._pybind_state',
         # InsightFace
         'insightface', 'insightface.app', 'insightface.app.face_analysis',
@@ -27,7 +29,7 @@ a = Analysis(
         'insightface.utils', 'insightface.utils.face_align',
         # Albumentations (pulled in by insightface)
         'albumentations', 'albumentations.augmentations',
-        # Matplotlib
+        # Matplotlib (headless)
         'matplotlib', 'matplotlib.pyplot', 'matplotlib.colors',
         'matplotlib.cm', 'matplotlib.patches',
         'matplotlib.backends', 'matplotlib.backends.backend_agg',
@@ -44,7 +46,6 @@ a = Analysis(
         'numpy.testing', 'numpy.testing._private',
         # System
         'psutil', 'requests', 'tqdm', 'pyvirtualcam',
-        'cv2.dnn',
         'sklearn', 'sklearn.metrics', 'sklearn.metrics.pairwise',
     ],
     hookspath=[],

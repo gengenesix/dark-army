@@ -4,19 +4,30 @@ import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
-if sys.platform == "win32":
-    BASE_DIR = Path(os.environ.get("APPDATA", Path.home())) / "Echelon"
-else:
-    BASE_DIR = Path.home() / ".echelon"
+# ── Platform-appropriate data directory ──
+def _get_base_dir() -> Path:
+    if sys.platform == "win32":
+        # Use %APPDATA%\Echelon on Windows (e.g. C:\Users\username\AppData\Roaming\Echelon)
+        appdata = os.environ.get("APPDATA", str(Path.home()))
+        return Path(appdata) / "Echelon"
+    else:
+        # Use ~/.echelon on Linux/macOS
+        return Path.home() / ".echelon"
+
+BASE_DIR = _get_base_dir()
 CONFIG_PATH = BASE_DIR / "data" / "config.json"
 
-_default_vcam = "" if sys.platform == "win32" else "/dev/video10"
+def _default_virtual_camera_device() -> str:
+    """Default virtual camera device path — platform-aware."""
+    if sys.platform == "win32":
+        return ""  # OBS Virtual Camera on Windows, no device path needed
+    return "/dev/video10"  # v4l2loopback on Linux
 
 @dataclass
 class AppConfig:
     performance_mode: str = "balanced"
     camera_device_id: int = 0
-    virtual_camera_device: str = _default_vcam
+    virtual_camera_device: str = field(default_factory=_default_virtual_camera_device)
     output_width: int = 1280
     output_height: int = 720
     output_fps: int = 30
@@ -49,8 +60,6 @@ class ConfigManager:
             BASE_DIR / "data" / "faces",
             BASE_DIR / "models",
             BASE_DIR / "logs",
-            BASE_DIR / "assets" / "icons",
-            BASE_DIR / "assets" / "styles",
         ]
         for d in dirs:
             d.mkdir(parents=True, exist_ok=True)
@@ -62,7 +71,7 @@ class ConfigManager:
         config.data_dir = str(BASE_DIR / "data")
         if self.config_path.exists():
             try:
-                with open(self.config_path, "r") as f:
+                with open(self.config_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 for key, value in data.items():
                     if hasattr(config, key):
@@ -77,7 +86,7 @@ class ConfigManager:
 
     def save(self, config: AppConfig):
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.config_path, "w") as f:
+        with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump(asdict(config), f, indent=2)
 
     def reset(self) -> AppConfig:

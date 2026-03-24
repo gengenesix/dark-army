@@ -8,6 +8,9 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+IS_WINDOWS = sys.platform == "win32"
+
+
 class CameraCapture:
     def __init__(self, device_id: int = 0, width: int = 1280, height: int = 720, fps: int = 30):
         self.device_id = device_id
@@ -21,7 +24,11 @@ class CameraCapture:
 
     def start(self) -> bool:
         try:
-            self._cap = cv2.VideoCapture(self.device_id)
+            if IS_WINDOWS:
+                # Use DirectShow backend on Windows for better camera compatibility
+                self._cap = cv2.VideoCapture(self.device_id, cv2.CAP_DSHOW)
+            else:
+                self._cap = cv2.VideoCapture(self.device_id)
             if not self._cap.isOpened():
                 logger.error(f"Cannot open camera {self.device_id}")
                 return False
@@ -70,10 +77,11 @@ class CameraCapture:
         logger.info("Camera stopped")
 
     def list_cameras(self) -> List[Dict]:
-        """Fast camera enumeration — platform-aware."""
+        """Enumerate available cameras — platform-aware."""
         cameras = []
-        if sys.platform == "win32":
-            # On Windows use DirectShow to enumerate cameras
+
+        if IS_WINDOWS:
+            # Use DirectShow on Windows — probe indices 0..7
             for i in range(8):
                 try:
                     cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
@@ -83,7 +91,8 @@ class CameraCapture:
                 except Exception:
                     pass
             return cameras if cameras else [{"id": 0, "name": "Default Camera"}]
-        # Linux/Mac: try fast path via /dev/video*
+
+        # Linux/macOS: try fast path via /dev/video* first
         import glob
         video_devs = sorted(glob.glob("/dev/video*"))
         if video_devs:
@@ -97,8 +106,9 @@ class CameraCapture:
                 except Exception:
                     pass
             return cameras if cameras else [{"id": 0, "name": "Default Camera"}]
-        # Fallback: probe first 3 only
-        for i in range(3):
+
+        # Fallback: probe first 4 indices
+        for i in range(4):
             try:
                 cap = cv2.VideoCapture(i)
                 if cap.isOpened():

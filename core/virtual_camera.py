@@ -5,8 +5,12 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+IS_WINDOWS = sys.platform == "win32"
+IS_LINUX = sys.platform.startswith("linux")
+
+
 class VirtualCameraOutput:
-    def __init__(self, device: str = '/dev/video10', width: int = 1280, height: int = 720, fps: int = 30):
+    def __init__(self, device: str = '', width: int = 1280, height: int = 720, fps: int = 30):
         self.device = device
         self.width = width
         self.height = height
@@ -17,15 +21,17 @@ class VirtualCameraOutput:
     def start(self) -> bool:
         try:
             import pyvirtualcam
-            if sys.platform == "win32":
-                # On Windows, pyvirtualcam uses OBS Virtual Camera — no device param
+
+            if IS_WINDOWS:
+                # On Windows, pyvirtualcam uses OBS Virtual Camera — no device path needed
                 self._camera = pyvirtualcam.Camera(
                     width=self.width,
                     height=self.height,
                     fps=self.fps,
                     fmt=pyvirtualcam.PixelFormat.RGB,
                 )
-            else:
+            elif IS_LINUX and self.device:
+                # On Linux, use v4l2loopback with explicit device path
                 self._camera = pyvirtualcam.Camera(
                     width=self.width,
                     height=self.height,
@@ -33,18 +39,34 @@ class VirtualCameraOutput:
                     device=self.device,
                     fmt=pyvirtualcam.PixelFormat.RGB,
                 )
+            else:
+                # macOS or Linux without device — let pyvirtualcam pick default
+                self._camera = pyvirtualcam.Camera(
+                    width=self.width,
+                    height=self.height,
+                    fps=self.fps,
+                    fmt=pyvirtualcam.PixelFormat.RGB,
+                )
+
             self.available = True
-            logger.info(f"Virtual camera started: {self.device} {self.width}x{self.height}@{self.fps}")
+            logger.info(f"Virtual camera started: {self.width}x{self.height}@{self.fps}")
             return True
-        except ImportError:
+
+        except ModuleNotFoundError:
             logger.warning("pyvirtualcam not installed. Virtual camera disabled.")
             self.available = False
             return False
         except Exception as e:
-            if sys.platform == "win32":
+            err_msg = str(e)
+            if IS_WINDOWS and ("obs" in err_msg.lower() or "virtual" in err_msg.lower() or "device" in err_msg.lower()):
                 logger.warning(
-                    f"Virtual camera unavailable: {e}. "
-                    "On Windows, install OBS Studio and enable the OBS Virtual Camera plugin."
+                    "Virtual camera unavailable on Windows. "
+                    "Install OBS Studio with Virtual Camera enabled to use this feature."
+                )
+            elif IS_LINUX and "v4l2loopback" in err_msg.lower():
+                logger.warning(
+                    "Virtual camera unavailable on Linux. "
+                    "Run: sudo apt install v4l2loopback-dkms && sudo modprobe v4l2loopback"
                 )
             else:
                 logger.warning(f"Virtual camera not available: {e}. Continuing without it.")
