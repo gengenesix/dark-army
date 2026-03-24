@@ -9,6 +9,8 @@ class ControlsPanel(QWidget):
     camera_changed = pyqtSignal(int)
     target_face_changed = pyqtSignal(str)
     bg_blur_changed = pyqtSignal(str)
+    start_clicked = pyqtSignal()
+    stop_clicked = pyqtSignal()
 
     _TARGET_FACE_MODES = ["largest", "smallest", "all", "face_1", "face_2", "face_3"]
     _BG_BLUR_MODES = ["off", "light", "heavy"]

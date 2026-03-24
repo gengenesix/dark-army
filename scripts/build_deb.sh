@@ -19,7 +19,7 @@ Version: ${VERSION}
 Section: video
 Priority: optional
 Architecture: amd64
-Depends: libgl1, libglib2.0-0, libxcb-xinerama0, libxcb-icccm4
+Depends: libgl1, libglib2.0-0, libxcb-xinerama0, libxcb-icccm4, libxcb-cursor0
 Maintainer: Zero <zero@echelon.app>
 Description: Real-time face swap for video calls
  Echelon lets you swap your face in real-time during video calls.
