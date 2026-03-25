@@ -52,19 +52,20 @@ jobs:
       - name: Verify build output
         shell: powershell
         run: |
-          if (!(Test-Path "dist\Echelon\Echelon.exe")) {
-            Write-Error "Build failed: Echelon.exe not found in dist\Echelon\"
+          $exePath = "dist\Echelon\Echelon.exe"
+          if (!(Test-Path $exePath)) {
+            Write-Error "Build failed: Echelon.exe not found"
             exit 1
           }
           $size = (Get-ChildItem "dist\Echelon" -Recurse | Measure-Object -Property Length -Sum).Sum
           Write-Host "Build size: $([math]::Round($size/1MB, 0)) MB"
           Write-Host "Echelon.exe: OK"
-          # Confirm VC++ DLLs are NOT in _internal\ (they should not be bundled)
-          $vcDlls = Get-ChildItem "dist\Echelon\_internal" -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue
+          $internalDir = "dist\Echelon\_internal"
+          $vcDlls = Get-ChildItem $internalDir -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue
           if ($vcDlls) {
-            Write-Warning "VC++ DLLs found in _internal\ — spec filter may not have worked: $($vcDlls.Name)"
+            Write-Warning "VC++ DLLs found in _internal - spec filter may not have worked: $($vcDlls.Name)"
           } else {
-            Write-Host "VC++ DLL check: clean (not bundled in _internal\)"
+            Write-Host "VC++ DLL check: clean (not bundled in _internal)"
           }
 
       - name: Install NSIS
