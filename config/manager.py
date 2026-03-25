@@ -9,10 +9,10 @@ def _get_base_dir() -> Path:
     if sys.platform == "win32":
         # Use %APPDATA%\Echelon on Windows (e.g. C:\Users\username\AppData\Roaming\Echelon)
         appdata = os.environ.get("APPDATA", str(Path.home()))
-        return Path(appdata) / "Echelon"
+        return Path(appdata) / "DarkArmy"
     else:
         # Use ~/.echelon on Linux/macOS
-        return Path.home() / ".echelon"
+        return Path.home() / ".dark-army"
 
 BASE_DIR = _get_base_dir()
 CONFIG_PATH = BASE_DIR / "data" / "config.json"
@@ -48,6 +48,14 @@ class AppConfig:
     bg_blur: str = "off"
     target_face_mode: str = "largest"
     presets: list = field(default_factory=list)
+    # Voice changer settings
+    vc_enabled: bool = False
+    vc_pitch_shift: int = 0
+    vc_model_path: str = ""
+    vc_input_device: int = -1   # -1 = system default
+    vc_output_device: int = -1  # -1 = system default
+    vc_noise_suppression: bool = True
+    vc_f0_method: str = "rmvpe"
 
 class ConfigManager:
     def __init__(self):

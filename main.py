@@ -51,13 +51,13 @@ def _make_splash(app):
     font.setBold(True)
     font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 4)
     painter.setFont(font)
-    painter.drawText(0, 205, 300, 40, Qt.AlignmentFlag.AlignCenter, "ECHELON")
+    painter.drawText(0, 205, 300, 40, Qt.AlignmentFlag.AlignCenter, "DARK-ARMY")
 
     painter.setPen(QColor("#50516A"))
     font2 = QFont()
     font2.setPointSize(11)
     painter.setFont(font2)
-    painter.drawText(0, 245, 300, 30, Qt.AlignmentFlag.AlignCenter, "by Zero  ·  v2.0")
+    painter.drawText(0, 245, 300, 30, Qt.AlignmentFlag.AlignCenter, "by Zero  ·  v1.0")
 
     painter.setPen(QColor("#5C5FFF"))
     font3 = QFont()
@@ -79,9 +79,9 @@ def main():
     logger.info("Echelon starting up...")
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Echelon")
-    app.setApplicationVersion("2.0.0")
-    app.setOrganizationName("Echelon")
+    app.setApplicationName("Dark-Army")
+    app.setApplicationVersion("1.0.0")
+    app.setOrganizationName("DarkArmy")
 
     # Show splash IMMEDIATELY so user sees the app opened
     splash = _make_splash(app)

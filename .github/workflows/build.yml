@@ -1,4 +1,4 @@
-name: Build Echelon — Windows & Linux
+name: Build Dark-Army — Windows & Linux
 
 on:
   push:
@@ -9,8 +9,7 @@ on:
 jobs:
 
   # ═══════════════════════════════════════════
-  # WINDOWS — .exe installer via NSIS
-  # VC++ runtime installed via official redist, NOT bundled in _internal\
+  # WINDOWS
   # ═══════════════════════════════════════════
   build-windows:
     runs-on: windows-latest
@@ -27,7 +26,7 @@ jobs:
         shell: cmd
         run: |
           python -m pip install --upgrade pip
-          pip install PyQt6==6.7.0 opencv-python-headless onnxruntime==1.19.2 insightface Pillow psutil requests tqdm albumentations scikit-learn scipy matplotlib pyvirtualcam onnx pyinstaller
+          pip install PyQt6==6.7.0 opencv-python-headless onnxruntime==1.19.2 insightface Pillow psutil requests tqdm albumentations scikit-learn scipy matplotlib pyvirtualcam onnx sounddevice python-socketio[client] websocket-client pyinstaller
 
       - name: Prepare data dirs
         shell: cmd
@@ -36,76 +35,63 @@ jobs:
           if not exist "models\models\buffalo_l" mkdir models\models\buffalo_l
 
       - name: Download VC++ Redistributable
-        shell: powershell
-        run: |
-          Write-Host "Downloading VC++ 2015-2022 Redistributable..."
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vc_redist.x64.exe"
-          $size = (Get-Item vc_redist.x64.exe).Length
-          Write-Host "Downloaded: $([math]::Round($size/1MB, 1)) MB"
-
-      - name: Build with PyInstaller (using spec file)
         shell: cmd
         run: |
-          pyinstaller --noconfirm echelon.spec
+          curl -L -o vc_redist.x64.exe "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+          echo VC++ redist downloaded
+
+      - name: Build with PyInstaller
+        shell: cmd
+        run: |
+          pyinstaller --noconfirm darkarmy.spec
           if errorlevel 1 exit /b 1
 
       - name: Verify build output
-        shell: powershell
+        shell: cmd
         run: |
-          $exePath = "dist\Echelon\Echelon.exe"
-          if (!(Test-Path $exePath)) {
-            Write-Error "Build failed: Echelon.exe not found"
-            exit 1
-          }
-          $size = (Get-ChildItem "dist\Echelon" -Recurse | Measure-Object -Property Length -Sum).Sum
-          Write-Host "Build size: $([math]::Round($size/1MB, 0)) MB"
-          Write-Host "Echelon.exe: OK"
-          $internalDir = "dist\Echelon\_internal"
-          $vcDlls = Get-ChildItem $internalDir -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue
-          if ($vcDlls) {
-            Write-Warning "VC++ DLLs found in _internal - spec filter may not have worked: $($vcDlls.Name)"
-          } else {
-            Write-Host "VC++ DLL check: clean (not bundled in _internal)"
-          }
+          if not exist "dist\DarkArmy\DarkArmy.exe" (
+            echo Build failed: DarkArmy.exe not found
+            exit /b 1
+          )
+          echo Build OK
+          dir dist\DarkArmy\DarkArmy.exe
 
       - name: Install NSIS
         shell: cmd
         run: |
           choco install nsis --yes --no-progress
           if not exist "C:\Program Files (x86)\NSIS\makensis.exe" (
-            echo NSIS not found after install
+            echo NSIS not found
             exit /b 1
           )
-          echo NSIS installed OK
+          echo NSIS installed
 
       - name: Build NSIS installer
         shell: cmd
         run: |
           set PATH=%PATH%;C:\Program Files (x86)\NSIS
-          "C:\Program Files (x86)\NSIS\makensis.exe" /V4 installer.nsi
+          "C:\Program Files (x86)\NSIS\makensis.exe" /V4 installer_darkarmy.nsi
           if errorlevel 1 exit /b 1
 
       - name: Verify installer
-        shell: powershell
+        shell: cmd
         run: |
-          $installerPath = "Echelon-Setup.exe"
-          if (!(Test-Path $installerPath)) {
-            Write-Error "Installer not found"
-            exit 1
-          }
-          $size = (Get-Item $installerPath).Length
-          $sizeMB = [math]::Round($size/1MB, 0)
-          Write-Host "Installer size: $sizeMB MB - OK"
+          if not exist "DarkArmy-Setup.exe" (
+            echo Installer not found
+            exit /b 1
+          )
+          echo Installer OK
+          dir DarkArmy-Setup.exe
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: Echelon-Windows
-          path: Echelon-Setup.exe
+          name: DarkArmy-Windows
+          path: DarkArmy-Setup.exe
           retention-days: 90
 
   # ═══════════════════════════════════════════
-  # LINUX — AppImage + .deb
+  # LINUX
   # ═══════════════════════════════════════════
   build-linux:
     runs-on: ubuntu-22.04
@@ -127,12 +113,13 @@ jobs:
             libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
             libxcb-shape0 libxcb-xfixes0 libxkbcommon-x11-0 \
             libdbus-1-3 libfontconfig1 libfreetype6 \
+            portaudio19-dev libportaudio2 \
             fuse libfuse2 dpkg-dev
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install PyQt6==6.7.0 opencv-python-headless onnxruntime insightface Pillow psutil requests tqdm albumentations scikit-learn scipy matplotlib pyvirtualcam onnx pyinstaller
+          pip install PyQt6==6.7.0 opencv-python-headless onnxruntime insightface Pillow psutil requests tqdm albumentations scikit-learn scipy matplotlib pyvirtualcam onnx sounddevice python-socketio[client] websocket-client pyinstaller
 
       - name: Prepare data dirs
         run: |
@@ -142,7 +129,7 @@ jobs:
       - name: Build with PyInstaller
         run: |
           pyinstaller \
-            --name=Echelon \
+            --name=DarkArmy \
             --onedir \
             --windowed \
             --add-data="assets/styles/theme.qss:assets/styles" \
@@ -172,20 +159,18 @@ jobs:
             --hidden-import=tqdm \
             --hidden-import=sklearn \
             --hidden-import=scipy \
-            --hidden-import=scipy.spatial \
             --hidden-import=albumentations \
             --hidden-import=pyvirtualcam \
-            --hidden-import=unittest \
-            --hidden-import=unittest.mock \
+            --hidden-import=sounddevice \
+            --hidden-import=socketio \
+            --hidden-import=engineio \
+            --hidden-import=websocket \
             --hidden-import=numpy.testing \
+            --hidden-import=unittest \
             --collect-all=insightface \
             --collect-all=onnxruntime \
             --collect-all=albumentations \
             --collect-all=cv2 \
-            --exclude-module=onnx.reference \
-            --exclude-module=onnxruntime.quantization \
-            --exclude-module=onnxruntime.transformers \
-            --exclude-module=onnxruntime.training \
             --exclude-module=tkinter \
             --exclude-module=_tkinter \
             --exclude-module=sympy \
@@ -195,41 +180,125 @@ jobs:
 
       - name: Verify Linux build
         run: |
-          if [ ! -f "dist/Echelon/Echelon" ]; then
-            echo "ERROR: dist/Echelon/Echelon binary not found!"
-            exit 1
-          fi
-          du -sh dist/Echelon/
-          echo "Linux build: OK"
+          test -f dist/DarkArmy/DarkArmy || { echo "Build failed"; exit 1; }
+          du -sh dist/DarkArmy/
+          echo "Linux build OK"
 
       - name: Build AppImage
         run: |
-          chmod +x scripts/build_appimage.sh
-          bash scripts/build_appimage.sh
+          # Download appimagetool
+          wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool-x86_64.AppImage
+          # Build AppDir
+          rm -rf DarkArmy.AppDir
+          mkdir -p DarkArmy.AppDir/usr/bin
+          mkdir -p DarkArmy.AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p DarkArmy.AppDir/usr/share/applications
+          cp -r dist/DarkArmy/* DarkArmy.AppDir/usr/bin/
+          cat > DarkArmy.AppDir/AppRun << 'APPRUNEOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/bin:${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          export ALBUMENTATIONS_DISABLE_VERSION_CHECK=1
+          export NO_ALBUMENTATIONS_UPDATE=1
+          export MPLBACKEND=Agg
+          export MPLCONFIGDIR="${HOME}/.cache/matplotlib"
+          exec "${HERE}/usr/bin/DarkArmy" "$@"
+          APPRUNEOF
+          chmod +x DarkArmy.AppDir/AppRun
+          cp assets/icons/icon_256.png DarkArmy.AppDir/darkarmy.png
+          cp assets/icons/icon_256.png DarkArmy.AppDir/usr/share/icons/hicolor/256x256/apps/darkarmy.png
+          cat > DarkArmy.AppDir/darkarmy.desktop << 'DEOF'
+          [Desktop Entry]
+          Name=Dark-Army
+          Comment=Real-time face swap + voice changer — by Zero
+          Exec=DarkArmy
+          Icon=darkarmy
+          Terminal=false
+          Type=Application
+          Categories=Video;AudioVideo;
+          DEOF
+          cp DarkArmy.AppDir/darkarmy.desktop DarkArmy.AppDir/usr/share/applications/
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage DarkArmy.AppDir DarkArmy-x86_64.AppImage
+          chmod +x DarkArmy-x86_64.AppImage
+          echo "AppImage built: $(du -sh DarkArmy-x86_64.AppImage)"
 
       - name: Build .deb package
         run: |
-          chmod +x scripts/build_deb.sh
-          bash scripts/build_deb.sh
+          VERSION="1.0.0"
+          PKG="darkarmy_${VERSION}_amd64"
+          rm -rf "$PKG"
+          mkdir -p "${PKG}/DEBIAN"
+          mkdir -p "${PKG}/opt/darkarmy"
+          mkdir -p "${PKG}/usr/local/bin"
+          mkdir -p "${PKG}/usr/share/applications"
+          mkdir -p "${PKG}/usr/share/icons/hicolor/256x256/apps"
+          cat > "${PKG}/DEBIAN/control" << EOF
+          Package: darkarmy
+          Version: ${VERSION}
+          Section: video
+          Priority: optional
+          Architecture: amd64
+          Depends: libgl1, libglib2.0-0, libxcb-xinerama0, libportaudio2
+          Maintainer: Zero <zero@darkarmy.app>
+          Description: Real-time face swap + voice changer
+           Dark-Army lets you swap your face AND change your voice in real-time.
+           Works with Discord, Zoom, Google Meet, Teams, and OBS.
+          EOF
+          cat > "${PKG}/DEBIAN/postinst" << 'EOF'
+          #!/bin/bash
+          modprobe v4l2loopback devices=1 video_nr=10 card_label="DarkArmy Camera" exclusive_caps=1 2>/dev/null || true
+          update-desktop-database /usr/share/applications 2>/dev/null || true
+          echo "Dark-Army installed successfully"
+          EOF
+          chmod 755 "${PKG}/DEBIAN/postinst"
+          cat > "${PKG}/DEBIAN/prerm" << 'EOF'
+          #!/bin/bash
+          pkill -f "DarkArmy" 2>/dev/null || true
+          EOF
+          chmod 755 "${PKG}/DEBIAN/prerm"
+          cp -r dist/DarkArmy/* "${PKG}/opt/darkarmy/"
+          cat > "${PKG}/usr/local/bin/darkarmy" << 'EOF'
+          #!/bin/bash
+          export ALBUMENTATIONS_DISABLE_VERSION_CHECK=1
+          export MPLBACKEND=Agg
+          export MPLCONFIGDIR="${HOME}/.cache/matplotlib"
+          cd /opt/darkarmy
+          exec ./DarkArmy "$@"
+          EOF
+          chmod +x "${PKG}/usr/local/bin/darkarmy"
+          cat > "${PKG}/usr/share/applications/darkarmy.desktop" << 'EOF'
+          [Desktop Entry]
+          Name=Dark-Army
+          Comment=Real-time face swap + voice changer — by Zero
+          Exec=/usr/local/bin/darkarmy
+          Icon=darkarmy
+          Terminal=false
+          Type=Application
+          Categories=Video;AudioVideo;
+          EOF
+          cp assets/icons/icon_256.png "${PKG}/usr/share/icons/hicolor/256x256/apps/darkarmy.png"
+          dpkg-deb --build "$PKG"
+          echo "Deb built: $(du -sh ${PKG}.deb)"
 
       - name: Verify outputs
         run: |
-          echo "=== Build outputs ==="
-          ls -lh Echelon-x86_64.AppImage echelon_2.0.0_amd64.deb
-          file Echelon-x86_64.AppImage
-          echo "All outputs verified OK"
+          ls -lh DarkArmy-x86_64.AppImage darkarmy_1.0.0_amd64.deb
+          echo "All outputs verified"
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
-          name: Echelon-Linux
+          name: DarkArmy-Linux
           path: |
-            Echelon-x86_64.AppImage
-            echelon_2.0.0_amd64.deb
+            DarkArmy-x86_64.AppImage
+            darkarmy_1.0.0_amd64.deb
           retention-days: 90
 
   # ═══════════════════════════════════════════
-  # RELEASE — publish to GitHub Releases
+  # RELEASE
   # ═══════════════════════════════════════════
   create-release:
     needs: [build-windows, build-linux]
@@ -241,54 +310,45 @@ jobs:
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: Echelon-Windows
+          name: DarkArmy-Windows
           path: release/
 
       - name: Download Linux artifact
         uses: actions/download-artifact@v4
         with:
-          name: Echelon-Linux
+          name: DarkArmy-Linux
           path: release/
-
-      - name: List release files
-        run: ls -lh release/
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Echelon ${{ github.ref_name }} — by Zero"
+          name: "Dark-Army ${{ github.ref_name }} — by Zero"
           body: |
-            ## ⚡ Echelon ${{ github.ref_name }}
-            **Real-time face swap for video calls. Created by Zero.**
+            ## ⚡ Dark-Army ${{ github.ref_name }}
+            **Real-time face swap + voice changer for video calls. Created by Zero.**
 
             ---
 
-            ## 📥 Download & Install
+            ## 📥 Download
 
-            | Platform | File | How to Install |
+            | Platform | File | Install |
             |---|---|---|
-            | 🪟 **Windows** | `Echelon-Setup.exe` | Double-click → Next → Finish |
-            | 🐧 **Linux (any distro)** | `Echelon-x86_64.AppImage` | `chmod +x Echelon-x86_64.AppImage` then double-click |
-            | 🐧 **Ubuntu / Debian** | `echelon_2.0.0_amd64.deb` | `sudo dpkg -i echelon_2.0.0_amd64.deb` |
+            | 🪟 Windows | `DarkArmy-Setup.exe` | Double-click → Next → Finish |
+            | 🐧 Linux | `DarkArmy-x86_64.AppImage` | chmod +x then double-click |
+            | 🐧 Ubuntu/Debian | `darkarmy_1.0.0_amd64.deb` | sudo dpkg -i |
 
             ---
 
-            ## 💾 Works Offline & via USB
-            All builds are **100% self-contained** — copy to USB, install on any machine without internet.
-
-            *Note: AI models (~850MB) download automatically on first launch (one-time only).*
-
-            ---
-
-            ## ⚙️ Requirements
-            - 8GB RAM minimum · Webcam required
-            - Linux: run `sudo apt install v4l2loopback-dkms` for virtual camera support
-            - Windows: Visual C++ 2015-2022 Runtime is installed automatically by the installer
+            ## 🎭 Features
+            - Real-time face swap (GPU-accelerated)
+            - Real-time voice changer (RVC / Beatrice v2)
+            - Works with Discord, Zoom, Google Meet, Teams, OBS
+            - Under 400ms latency on GPU
 
           files: |
-            release/Echelon-Setup.exe
-            release/Echelon-x86_64.AppImage
-            release/echelon_2.0.0_amd64.deb
+            release/DarkArmy-Setup.exe
+            release/DarkArmy-x86_64.AppImage
+            release/darkarmy_1.0.0_amd64.deb
           draft: false
           prerelease: false
           fail_on_unmatched_files: false

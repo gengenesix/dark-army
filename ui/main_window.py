@@ -17,6 +17,10 @@ from ui.widgets import Card, SectionLabel, Divider
 from ui.face_panel import FacePanel
 from ui.preview_panel import PreviewPanel
 from ui.controls_panel import ControlsPanel
+from ui.voice_panel import VoicePanel
+from core.voice_changer.vc_server import VCServerManager
+from core.voice_changer.audio_pipeline import AudioPipeline
+from core.voice_changer.model_manager import ModelManager
 from ui.status_bar import StatusBar
 from ui.settings_dialog import SettingsDialog
 from ui.tutorial import TutorialOverlay
@@ -97,6 +101,22 @@ class MainWindow(QMainWindow):
         self._pending_gallery_save_name = None
         self.tray = None
         self.face_gallery = FaceGallery(config.data_dir)
+
+        # Voice changer components
+        self._vc_server = VCServerManager(
+            config.data_dir,
+            on_status=self._on_vc_server_status,
+            on_ready=self._on_vc_server_ready,
+            on_error=self._on_vc_error,
+        )
+        self._vc_audio = AudioPipeline(
+            input_device=config.vc_input_device if config.vc_input_device >= 0 else None,
+            output_device=config.vc_output_device if config.vc_output_device >= 0 else None,
+            on_latency=self._on_vc_latency,
+            on_status=self._on_vc_audio_status,
+            on_error=self._on_vc_error,
+        )
+        self._vc_models = ModelManager(config.data_dir)
         self._setup_window()
         self._setup_ui()
         self._setup_connections()
@@ -216,12 +236,38 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(12, 12, 12, 8)
         sidebar_layout.setSpacing(8)
 
+        # Tab widget: Face Swap | Voice Changer
+        from PyQt6.QtWidgets import QTabWidget
+        self._sidebar_tabs = QTabWidget()
+        self._sidebar_tabs.setDocumentMode(True)
+        self._sidebar_tabs.setStyleSheet("""
+            QTabBar::tab { padding: 8px 16px; font-size: 12px; font-weight: 600; }
+        """)
+
+        # ── Face Swap tab ──
+        face_tab = QWidget()
+        face_tab_layout = QVBoxLayout(face_tab)
+        face_tab_layout.setContentsMargins(0, 8, 0, 0)
+        face_tab_layout.setSpacing(8)
+        face_tab.setStyleSheet("background: transparent;")
+
         self.face_panel = FacePanel()
-        sidebar_layout.addWidget(self.face_panel)
+        face_tab_layout.addWidget(self.face_panel)
 
         self.controls_panel = ControlsPanel()
         self.controls_panel.set_mode(self.config.performance_mode)
-        sidebar_layout.addWidget(self.controls_panel)
+        face_tab_layout.addWidget(self.controls_panel)
+        face_tab_layout.addStretch()
+
+        self._sidebar_tabs.addTab(face_tab, "👤  Face")
+
+        # ── Voice tab ──
+        self.voice_panel = VoicePanel(
+            self._vc_server, self._vc_models, self._vc_audio
+        )
+        self._sidebar_tabs.addTab(self.voice_panel, "🎤  Voice")
+
+        sidebar_layout.addWidget(self._sidebar_tabs)
 
         # Presets section
         from ui.widgets import SectionCard
@@ -298,6 +344,13 @@ class MainWindow(QMainWindow):
         self.controls_panel.camera_changed.connect(self._on_camera_changed)
         self.controls_panel.target_face_changed.connect(self._on_target_face_changed)
         self.controls_panel.bg_blur_changed.connect(self._on_bg_blur_changed)
+        # Voice changer
+        self.voice_panel.start_vc_requested.connect(self._on_vc_start)
+        self.voice_panel.stop_vc_requested.connect(self._on_vc_stop)
+        self.voice_panel.pitch_changed.connect(self._on_vc_pitch_changed)
+        self.voice_panel.model_changed.connect(self._on_vc_model_changed)
+        self.voice_panel.input_device_changed.connect(self._on_vc_input_device)
+        self.voice_panel.output_device_changed.connect(self._on_vc_output_device)
 
     def _setup_hotkeys(self):
         QShortcut(QKeySequence("Space"), self, self._toggle_pipeline)
@@ -466,6 +519,7 @@ class MainWindow(QMainWindow):
         """Ctrl+Q — actually quit (not just minimise)."""
         self._save_geometry()
         self.on_stop()
+        self._cleanup_voice()
         QApplication.quit()
 
     def _on_mode_changed(self, mode: str):
@@ -519,6 +573,62 @@ class MainWindow(QMainWindow):
         self.controls_panel.set_target_face_mode(target_face_mode)
         self._on_target_face_changed(target_face_mode)
 
+    # ── Voice Changer handlers ────────────────────────────────────────────────
+
+    def _on_vc_start(self):
+        """Start VC server then audio pipeline."""
+        if not self._vc_server.is_installed():
+            QMessageBox.information(self, "Voice Changer",
+                "Please download the voice changer server first\n"
+                "(click the ⬇ Download button in the Voice tab).")
+            return
+        if not self._vc_server.is_running():
+            self._vc_server.start()
+        # Audio pipeline starts after server is ready (_on_vc_server_ready)
+
+    def _on_vc_stop(self):
+        self._vc_audio.stop()
+        self._vc_server.stop()
+        self.config.vc_enabled = False
+
+    def _on_vc_server_ready(self):
+        """Server is up — now start the audio pipeline."""
+        input_dev = self.config.vc_input_device if self.config.vc_input_device >= 0 else None
+        output_dev = self.config.vc_output_device if self.config.vc_output_device >= 0 else None
+        self._vc_audio.input_device = input_dev
+        self._vc_audio.output_device = output_dev
+        self._vc_audio.pitch_shift = self.config.vc_pitch_shift
+        self._vc_audio.start()
+        self.config.vc_enabled = True
+
+    def _on_vc_server_status(self, status: str):
+        self.voice_panel.update_server_status(status)
+
+    def _on_vc_audio_status(self, status: str):
+        pass  # Could update a dedicated status label
+
+    def _on_vc_latency(self, ms: float):
+        self.voice_panel.update_vc_latency(ms)
+
+    def _on_vc_error(self, msg: str):
+        QMessageBox.warning(self, "Voice Changer Error", msg)
+
+    def _on_vc_pitch_changed(self, val: int):
+        self.config.vc_pitch_shift = val
+        self._vc_audio.set_pitch(val)
+
+    def _on_vc_model_changed(self, path: str):
+        self.config.vc_model_path = path
+        self._vc_audio.set_model(path)
+
+    def _on_vc_input_device(self, device_id: int):
+        self.config.vc_input_device = device_id
+        self._vc_audio.input_device = device_id
+
+    def _on_vc_output_device(self, device_id: int):
+        self.config.vc_output_device = device_id
+        self._vc_audio.output_device = device_id
+
     def show_tutorial(self):
         """Show the first-launch tutorial overlay."""
         overlay = TutorialOverlay(self)
@@ -529,6 +639,14 @@ class MainWindow(QMainWindow):
         self.hide()
         if self.tray:
             self.tray.show_notification("Echelon", "Running in background")
+
+    def _cleanup_voice(self):
+        """Stop voice changer components cleanly."""
+        try:
+            self._vc_audio.stop()
+            self._vc_server.stop()
+        except Exception:
+            pass
 
     def _save_geometry(self):
         pos = self.pos()

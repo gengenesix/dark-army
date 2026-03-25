@@ -4,7 +4,7 @@ Pillow>=10.1.0
 requests==2.31.0
 tqdm==4.66.1
 psutil==5.9.6
-onnxruntime>=1.16.3
+onnxruntime>=1.19.0
 insightface==0.7.3
 onnx>=1.14.1
 PyQt6>=6.6.0
@@ -12,3 +12,7 @@ pyvirtualcam>=0.10.0
 scipy>=1.11.4
 scikit-image>=0.22.0
 imageio>=2.33.0
+# Voice changer
+sounddevice>=0.4.6
+python-socketio[client]>=5.10.0
+websocket-client>=1.7.0
