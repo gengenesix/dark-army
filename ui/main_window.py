@@ -1,14 +1,14 @@
 import os
 from pathlib import Path
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-                              QLabel, QPushButton, QMessageBox, QSizePolicy,
+                              QLabel, QPushButton, QMessageBox,
                               QFrame, QApplication, QComboBox)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QTimer
-from PyQt6.QtGui import QKeySequence, QShortcut, QPixmap, QIcon, QColor
-import cv2
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtGui import QKeySequence, QShortcut, QPixmap, QIcon
 
 from config.manager import AppConfig, ConfigManager
 from core.hardware import HardwareInfo
+from utils.resource_path import resource_path
 from core.face_detector import FaceDetector, DetectedFace
 from core.capture import CameraCapture
 from core.pipeline import EchelonPipeline
@@ -29,25 +29,54 @@ class FaceLoadThread(QThread):
     face_loaded = pyqtSignal(object, str)  # DetectedFace, path
     face_failed = pyqtSignal(str)
 
+    TIMEOUT_MS = 20000  # 20 seconds max
+
     def __init__(self, image_path: str, models_dir: str, providers: list, parent=None):
         super().__init__(parent)
         self.image_path = image_path
         self.models_dir = models_dir
         self.providers = providers
+        self._timed_out = False
 
     def run(self):
-        try:
-            detector = FaceDetector(self.models_dir, self.providers)
-            if not detector.load():
-                self.face_failed.emit("Could not load face detector")
-                return
-            face = detector.extract_face_from_image(self.image_path)
-            if face is None:
-                self.face_failed.emit("No face detected in this photo")
-            else:
-                self.face_loaded.emit(face, self.image_path)
-        except Exception as e:
-            self.face_failed.emit(str(e))
+        import threading
+        result = {"face": None, "error": None, "done": False}
+
+        def _detect():
+            try:
+                detector = FaceDetector(self.models_dir, self.providers)
+                if not detector.load():
+                    result["error"] = (
+                        "Could not load face detector.\n"
+                        "Make sure models downloaded correctly on first launch."
+                    )
+                    result["done"] = True
+                    return
+                face = detector.extract_face_from_image(self.image_path)
+                if face is None:
+                    result["error"] = "No face detected. Try a clearer front-facing photo."
+                else:
+                    result["face"] = face
+                result["done"] = True
+            except Exception as e:
+                result["error"] = f"Detection error: {e}"
+                result["done"] = True
+
+        t = threading.Thread(target=_detect, daemon=True)
+        t.start()
+        t.join(timeout=self.TIMEOUT_MS / 1000)
+
+        if not result["done"]:
+            self.face_failed.emit(
+                "Face detection timed out (20s). "
+                "Models may still be loading — try again in a moment."
+            )
+            return
+
+        if result["error"]:
+            self.face_failed.emit(result["error"])
+        else:
+            self.face_loaded.emit(result["face"], self.image_path)
 
 
 def _make_card_frame() -> QFrame:
@@ -79,8 +108,7 @@ class MainWindow(QMainWindow):
 
     def _setup_window(self):
         self.setWindowTitle("Echelon")
-        # Set window icon
-        icon_path = Path(__file__).parent.parent / "assets" / "icons" / "icon_256.png"
+        icon_path = Path(resource_path("assets/icons/icon_256.png"))
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
         self.setMinimumSize(900, 620)
@@ -100,7 +128,7 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(header)
         layout.setContentsMargins(20, 0, 20, 0)
 
-        logo_path = Path(__file__).parent.parent / "assets" / "icons" / "icon_32.png"
+        logo_path = Path(resource_path("assets/icons/icon_32.png"))
         if logo_path.exists():
             logo_lbl = QLabel()
             logo_lbl.setPixmap(QPixmap(str(logo_path)).scaled(

@@ -4,7 +4,8 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QCheckBox, QComboBox, QLineEdit,
                               QGroupBox, QFormLayout, QSlider, QMessageBox,
-                              QInputDialog)
+                              QInputDialog, QScrollArea, QWidget, QSizePolicy,
+                              QFrame)
 from PyQt6.QtCore import Qt
 from config.manager import AppConfig, BASE_DIR
 
@@ -37,14 +38,32 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.config = config
         self.setWindowTitle("Settings")
-        self.setFixedSize(500, 760)
+        self.setMinimumSize(520, 600)
+        self.resize(520, 740)
         self._setup_ui()
         self.load_from_config(config)
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 20)
+        # Outer layout: scroll area + fixed button row
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # Scroll area for all settings content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        scroll_widget = QWidget()
+        scroll_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        layout = QVBoxLayout(scroll_widget)
+        layout.setContentsMargins(24, 24, 24, 12)
         layout.setSpacing(16)
+
+        scroll.setWidget(scroll_widget)
+        outer.addWidget(scroll, 1)
 
         # ── General ─────────────────────────────────────────────────────────
         gen = QGroupBox("General")
@@ -64,7 +83,8 @@ class SettingsDialog(QDialog):
         perf = QGroupBox("Performance")
         perf.setStyleSheet(_grp_style())
         perf_layout = QFormLayout(perf)
-        perf_layout.setSpacing(10)
+        perf_layout.setSpacing(12)
+        perf_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
         skip_row, self._skip_slider, self._skip_val_lbl = _make_slider_row(0, 3, 1)
         perf_layout.addRow("Frame skip (0 = off):", skip_row)
@@ -73,13 +93,16 @@ class SettingsDialog(QDialog):
         perf_layout.addRow("Detect every N frames:", det_row)
 
         self._res_combo = QComboBox()
-        self._res_combo.addItems(["480p – Speed", "640p – Balanced", "720p – Quality"])
+        self._res_combo.setMinimumHeight(32)
+        self._res_combo.addItems(["480p (Speed)", "640p (Balanced)", "720p (Quality)"])
         perf_layout.addRow("Processing resolution:", self._res_combo)
 
         self._autotune_cb = QCheckBox("Auto-tune to maintain ~15 FPS")
+        self._autotune_cb.setMinimumHeight(28)
         perf_layout.addRow("", self._autotune_cb)
 
         opt_btn = QPushButton("⚡  Optimize for My Hardware")
+        opt_btn.setMinimumHeight(34)
         opt_btn.clicked.connect(self._on_optimize)
         perf_layout.addRow("", opt_btn)
 
@@ -135,17 +158,26 @@ class SettingsDialog(QDialog):
 
         layout.addStretch()
 
-        # Buttons
-        btn_row = QHBoxLayout()
+        # Fixed button row OUTSIDE scroll area (always visible at bottom)
+        btn_frame = QFrame()
+        btn_frame.setStyleSheet(
+            "QFrame { background: #0D0E14; border-top: 1px solid #1E1F2E; }"
+        )
+        btn_row = QHBoxLayout(btn_frame)
+        btn_row.setContentsMargins(24, 12, 24, 16)
         btn_row.addStretch()
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(90)
+        cancel_btn.setMinimumHeight(36)
         cancel_btn.clicked.connect(self.reject)
         save_btn = QPushButton("Save")
         save_btn.setObjectName("primaryBtn")
+        save_btn.setMinimumWidth(90)
+        save_btn.setMinimumHeight(36)
         save_btn.clicked.connect(self._on_save)
         btn_row.addWidget(cancel_btn)
         btn_row.addWidget(save_btn)
-        layout.addLayout(btn_row)
+        outer.addWidget(btn_frame)
 
     # ── Resolution index helpers ──────────────────────────────────────────
     _MODE_TO_RES = {"speed": 0, "balanced": 1, "quality": 2}

@@ -33,6 +33,43 @@ ShowUninstDetails show
 !include "FileFunc.nsh"
 !include "LogicLib.nsh"
 
+; StrContains — find substring
+!macro StrContains Dest Haystack Needle
+  Push "${Haystack}"
+  Push "${Needle}"
+  Call StrContainsFunc
+  Pop "${Dest}"
+!macroend
+!define StrContains "!insertmacro StrContains"
+
+Function StrContainsFunc
+  Exch $R0  ; Needle
+  Exch
+  Exch $R1  ; Haystack
+  Push $R2
+  Push $R3
+  Push $R4
+  StrLen $R3 $R0
+  StrLen $R4 $R1
+  IntOp $R4 $R4 - $R3
+  StrCpy $R2 ""
+  ${For} $R5 0 $R4
+    StrCpy $R2 $R1 $R3 $R5
+    ${If} $R2 == $R0
+      StrCpy $R2 $R0
+      ${Break}
+    ${EndIf}
+    StrCpy $R2 ""
+  ${Next}
+  Pop $R4
+  Pop $R3
+  Pop $R5
+  Pop $R1
+  Exch $R2
+  Exch
+  Pop $R0
+FunctionEnd
+
 ; UI Settings
 !define MUI_ABORTWARNING
 !define MUI_ICON                "assets\icons\echelon.ico"
@@ -61,35 +98,33 @@ ShowUninstDetails show
 ; - Waits up to 10 seconds (5 × 2s) for process to fully exit
 ; ═══════════════════════════════════════════════════════════════════
 !macro KillEchelonSilent
-  DetailPrint "Stopping any running Echelon instances..."
-  ; Use cmd /c + 2>nul to suppress "process not found" error output entirely
-  nsExec::ExecToLog 'cmd /c taskkill /F /IM "${APP_EXE}" /T 2>nul'
-  Pop $0  ; discard return code — 128 means "not found" which is perfectly fine
+  ; Use nsExec::Exec (NOT ExecToLog) so output is NEVER shown in the detail log
+  ; cmd /c with 2>nul suppresses "process not found" stderr entirely
+  ; Return code 128 = "process not found" = perfectly fine, discard silently
+  nsExec::Exec 'cmd /c taskkill /F /IM "${APP_EXE}" /T 2>nul 1>nul'
+  Pop $0  ; discard — 0=killed, 128=not found, both are OK
 
-  ; Wait loop: verify the process is truly gone before proceeding
+  ; Wait loop: verify the process is truly gone (up to 5 retries × 2s = 10s max)
   StrCpy $R0 0
   ${Do}
     ${If} $R0 >= 5
-      ${Break}  ; gave it 10 seconds total, move on
+      ${Break}
     ${EndIf}
     Sleep 2000
-    ; Check if still running via tasklist
     nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq ${APP_EXE}" /NH 2>nul'
-    Pop $R1  ; exit code
-    Pop $R2  ; stdout
-    ; If output contains "No tasks" or is empty, process is gone
+    Pop $R1
+    Pop $R2
     ${If} $R2 == ""
       ${Break}
     ${EndIf}
-    ${If} $R2 == "INFO: No tasks are running which match the specified criteria."
+    ${StrContains} $R3 "No tasks" $R2
+    ${If} $R3 != ""
       ${Break}
     ${EndIf}
-    ; Still running — retry
     IntOp $R0 $R0 + 1
-    nsExec::ExecToLog 'cmd /c taskkill /F /IM "${APP_EXE}" /T 2>nul'
+    nsExec::Exec 'cmd /c taskkill /F /IM "${APP_EXE}" /T 2>nul 1>nul'
     Pop $0
   ${Loop}
-  DetailPrint "Process check complete."
 !macroend
 
 ; ═══════════════════════════════════════════════════════════════════
@@ -141,8 +176,9 @@ Section "Echelon" SecMain
 
   ; ── PHASE 1: Pre-installation cleanup ──────────────────────────
 
-  ; Kill any running Echelon — silently, with wait loop
+  ; Kill any running Echelon — silently, NO output logged
   !insertmacro KillEchelonSilent
+
 
   ; Run previous version's uninstaller silently if found
   !insertmacro RunPreviousUninstaller
@@ -236,8 +272,8 @@ SectionEnd
 ; UNINSTALLER
 ; ═══════════════════════════════════════════════════════════════════
 Section "Uninstall"
-  ; Kill process silently — suppress "not found" errors
-  nsExec::ExecToLog 'cmd /c taskkill /F /IM "${APP_EXE}" /T 2>nul'
+  ; Kill process silently — no output, no "not found" error shown
+  nsExec::Exec 'cmd /c taskkill /F /IM "${APP_EXE}" /T 2>nul 1>nul'
   Pop $0
   Sleep 1500
 

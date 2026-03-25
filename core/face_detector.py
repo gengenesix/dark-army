@@ -33,10 +33,24 @@ class FaceDetector:
     def load(self) -> bool:
         try:
             import insightface
+            from pathlib import Path
             t0 = time.time()
+
+            # Ensure models dir exists
+            models_path = Path(self.models_dir)
+            models_path.mkdir(parents=True, exist_ok=True)
+            buffalo_path = models_path / "models" / "buffalo_l"
+
+            logger.info(f"FaceDetector: models_dir={self.models_dir}")
+            logger.info(f"FaceDetector: buffalo_l path={buffalo_path}")
+            logger.info(f"FaceDetector: buffalo_l exists={buffalo_path.exists()}")
+            if buffalo_path.exists():
+                onnx_files = list(buffalo_path.glob("*.onnx"))
+                logger.info(f"FaceDetector: buffalo_l onnx files={[f.name for f in onnx_files]}")
+
             self.app = insightface.app.FaceAnalysis(
                 name='buffalo_l',
-                root=self.models_dir,
+                root=str(models_path),
                 providers=self.providers
             )
             ctx_id = 0 if any("CUDA" in p for p in self.providers) else -1
@@ -45,7 +59,7 @@ class FaceDetector:
             logger.info(f"FaceDetector loaded in {time.time()-t0:.2f}s")
             return True
         except Exception as e:
-            logger.error(f"FaceDetector load failed: {e}")
+            logger.error(f"FaceDetector load failed: {e}", exc_info=True)
             return False
 
     def detect_faces(self, frame: np.ndarray) -> List[DetectedFace]:

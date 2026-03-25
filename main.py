@@ -24,6 +24,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QPixmap, QColor, QPainter, QFont
 
 from utils.logger import setup_logging
+from utils.resource_path import resource_path
 from config.manager import AppConfig, ConfigManager
 from core.hardware import HardwareDetector
 from ui.main_window import MainWindow
@@ -86,13 +87,13 @@ def main():
     splash = _make_splash(app)
 
     # Load stylesheet
-    qss_path = Path(__file__).parent / "assets" / "styles" / "theme.qss"
+    qss_path = Path(resource_path("assets/styles/theme.qss"))
     if qss_path.exists():
         app.setStyleSheet(qss_path.read_text(encoding='utf-8'))
         logger.info("Stylesheet loaded")
 
     # Set app icon
-    icon_path = Path(__file__).parent / "assets" / "icons" / "icon_256.png"
+    icon_path = Path(resource_path("assets/icons/icon_256.png"))
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
