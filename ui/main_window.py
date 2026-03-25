@@ -127,7 +127,7 @@ class MainWindow(QMainWindow):
         self._refresh_presets()
 
     def _setup_window(self):
-        self.setWindowTitle("Echelon")
+        self.setWindowTitle("Dark-Army")
         icon_path = Path(resource_path("assets/icons/icon_256.png"))
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
@@ -638,7 +638,7 @@ class MainWindow(QMainWindow):
         event.ignore()
         self.hide()
         if self.tray:
-            self.tray.show_notification("Echelon", "Running in background")
+            self.tray.show_notification("Dark-Army", "Running in background")
 
     def _cleanup_voice(self):
         """Stop voice changer components cleanly."""

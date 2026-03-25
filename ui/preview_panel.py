@@ -113,7 +113,7 @@ class PreviewPanel(QWidget):
     def _set_placeholder(self):
         for lbl in (self._orig_label, self._swap_label):
             lbl.setPixmap(QPixmap())
-            lbl.setText("Start Echelon to see preview")
+            lbl.setText("Start Dark-Army to see preview")
             lbl.setStyleSheet(
                 "background-color: #111218; border-radius: 8px; "
                 "color: #50516A; font-size: 13px;"

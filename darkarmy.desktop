@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=Echelon
-Comment=Real-time face swap for video calls
-Exec=Echelon
+Name=Dark-Army
+Comment=Real-time face swap + voice changer — by Zero
+Exec=DarkArmy
 Icon=echelon_logo
 Terminal=false
 Type=Application

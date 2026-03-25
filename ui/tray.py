@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QSize
 from pathlib import Path
 
 def _make_tray_icon() -> QIcon:
-    icon_path = Path.home() / "xeroclaw" / "echelon" / "assets" / "icons" / "tray_icon.png"
+    icon_path = Path.home() / "xeroclaw" / "echelon" / "assets" / "icons" / "darkarmy_tray.png"
     if icon_path.exists():
         return QIcon(str(icon_path))
     # Generate a colored square icon
@@ -27,13 +27,13 @@ class EchelonTray(QSystemTrayIcon):
         self.main_window = main_window
         self._is_active = False
         self.setIcon(_make_tray_icon())
-        self.setToolTip("Echelon")
+        self.setToolTip("Dark-Army")
         self._build_menu()
         self.activated.connect(self._on_activated)
 
     def _build_menu(self):
         menu = QMenu()
-        title_action = menu.addAction("Echelon")
+        title_action = menu.addAction("Dark-Army")
         title_action.setEnabled(False)
         menu.addSeparator()
         self._open_action = menu.addAction("Open")

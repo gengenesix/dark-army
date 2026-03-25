@@ -3,7 +3,7 @@ set -e
 
 VERSION="2.0.0"
 PKG="echelon_${VERSION}_amd64"
-echo "=== Building Echelon .deb package ==="
+echo "=== Building Dark-Army .deb package ==="
 
 rm -rf "$PKG"
 mkdir -p "${PKG}/DEBIAN"
@@ -22,18 +22,18 @@ Architecture: amd64
 Depends: libgl1, libglib2.0-0, libxcb-xinerama0, libxcb-icccm4, libxcb-cursor0
 Maintainer: Zero <zero@echelon.app>
 Description: Real-time face swap for video calls
- Echelon lets you swap your face in real-time during video calls.
+ Dark-Army lets you swap your face in real-time during video calls.
  Works with Zoom, Google Meet, Discord, WhatsApp, and Teams.
  Created by Zero.
 EOF
 
 cat > "${PKG}/DEBIAN/postinst" << 'EOF'
 #!/bin/bash
-modprobe v4l2loopback devices=1 video_nr=10 card_label="Echelon Camera" exclusive_caps=1 2>/dev/null || true
+modprobe v4l2loopback devices=1 video_nr=10 card_label="DarkArmy Camera" exclusive_caps=1 2>/dev/null || true
 update-desktop-database /usr/share/applications 2>/dev/null || true
 gtk-update-icon-cache -f /usr/share/icons/hicolor/ 2>/dev/null || true
 echo ""
-echo "✅ Echelon installed successfully!"
+echo "✅ Dark-Army installed successfully!"
 echo "   Find it in your app menu, or run: echelon"
 echo ""
 EOF
@@ -41,12 +41,12 @@ chmod 755 "${PKG}/DEBIAN/postinst"
 
 cat > "${PKG}/DEBIAN/prerm" << 'EOF'
 #!/bin/bash
-pkill -f "Echelon" 2>/dev/null || true
+pkill -f "Dark-Army" 2>/dev/null || true
 EOF
 chmod 755 "${PKG}/DEBIAN/prerm"
 
 # Copy binary
-cp -r dist/Echelon/* "${PKG}/opt/echelon/"
+cp -r dist/Dark-Army/* "${PKG}/opt/echelon/"
 
 # Launcher
 cat > "${PKG}/usr/local/bin/echelon" << 'EOF'
@@ -56,14 +56,14 @@ export NO_ALBUMENTATIONS_UPDATE=1
 export MPLBACKEND=Agg
 export MPLCONFIGDIR="${HOME}/.cache/matplotlib"
 cd /opt/echelon
-exec ./Echelon "$@"
+exec ./Dark-Army "$@"
 EOF
 chmod +x "${PKG}/usr/local/bin/echelon"
 
 # Desktop file
 cat > "${PKG}/usr/share/applications/echelon.desktop" << 'EOF'
 [Desktop Entry]
-Name=Echelon
+Name=Dark-Army
 GenericName=Face Swap
 Comment=Real-time face swap for video calls — by Zero
 Exec=/usr/local/bin/echelon

@@ -208,8 +208,8 @@ jobs:
           exec "${HERE}/usr/bin/DarkArmy" "$@"
           APPRUNEOF
           chmod +x DarkArmy.AppDir/AppRun
-          cp assets/icons/icon_256.png DarkArmy.AppDir/darkarmy.png
-          cp assets/icons/icon_256.png DarkArmy.AppDir/usr/share/icons/hicolor/256x256/apps/darkarmy.png
+          cp assets/icons/darkarmy_icon_256.png DarkArmy.AppDir/darkarmy.png
+          cp assets/icons/darkarmy_icon_256.png DarkArmy.AppDir/usr/share/icons/hicolor/256x256/apps/darkarmy.png
           cat > DarkArmy.AppDir/darkarmy.desktop << 'DEOF'
           [Desktop Entry]
           Name=Dark-Army
@@ -279,7 +279,7 @@ jobs:
           Type=Application
           Categories=Video;AudioVideo;
           EOF
-          cp assets/icons/icon_256.png "${PKG}/usr/share/icons/hicolor/256x256/apps/darkarmy.png"
+          cp assets/icons/darkarmy_icon_256.png "${PKG}/usr/share/icons/hicolor/256x256/apps/darkarmy.png"
           dpkg-deb --build "$PKG"
           echo "Deb built: $(du -sh ${PKG}.deb)"
 

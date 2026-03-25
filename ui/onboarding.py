@@ -17,7 +17,7 @@ class OnboardingDialog(QDialog):
     def __init__(self, config: AppConfig, parent=None):
         super().__init__(parent)
         self.config = config
-        self.setWindowTitle("Welcome to Echelon")
+        self.setWindowTitle("Welcome to Dark-Army")
         self.setFixedSize(540, 520)
         self.setModal(True)
         self._downloader = None
@@ -29,7 +29,7 @@ class OnboardingDialog(QDialog):
         layout.setContentsMargins(32, 28, 32, 24)
         layout.setSpacing(14)
 
-        title = QLabel("Welcome to Echelon")
+        title = QLabel("Welcome to Dark-Army")
         title.setStyleSheet("color: #E8E9F0; font-size: 20px; font-weight: 700; background: transparent;")
         layout.addWidget(title)
 
@@ -127,7 +127,7 @@ class OnboardingDialog(QDialog):
         ok = os.path.exists('/dev/video10')
         row = self._vcam_row
         if ok:
-            self._set_row_ok(row, "Echelon Camera device ready")
+            self._set_row_ok(row, "Dark-Army Camera device ready")
         else:
             self._set_row_fail(row, "Not found — click Fix to install")
             self._connect_btn(row["btn"], self._fix_vcam)
@@ -141,7 +141,7 @@ class OnboardingDialog(QDialog):
             subprocess.run(
                 ['sudo', 'modprobe', 'v4l2loopback',
                  'devices=1', 'video_nr=10',
-                 'card_label=Echelon Camera', 'exclusive_caps=1'],
+                 'card_label=Dark-Army Camera', 'exclusive_caps=1'],
                 check=True, timeout=15
             )
         except Exception as e:

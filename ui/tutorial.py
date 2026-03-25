@@ -11,7 +11,7 @@ class TutorialOverlay(QWidget):
         "1. Upload a face photo here \u2192",
         "2. Choose your performance mode",
         "3. Hit START to begin!",
-        "4. Select \u2018Echelon Camera\u2019 in your video app",
+        "4. Select \u2018Dark-Army Camera\u2019 in your video app",
     ]
 
     def __init__(self, parent):

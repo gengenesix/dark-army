@@ -147,9 +147,9 @@ class SettingsDialog(QDialog):
         about = QGroupBox("About")
         about.setStyleSheet(_grp_style())
         about_layout = QVBoxLayout(about)
-        about_layout.addWidget(QLabel("Echelon v2.0"))
+        about_layout.addWidget(QLabel("Dark-Army v1.0"))
         about_layout.addWidget(QLabel("Created by Zero"))
-        about_layout.addWidget(QLabel("Built with FaceFusion engine"))
+        about_layout.addWidget(QLabel("Face Swap + Voice Changer by Zero"))
         about_layout.addWidget(QLabel("© 2026 Zero. All rights reserved."))
         update_btn = QPushButton("Check for Updates")
         update_btn.clicked.connect(self._on_check_updates)
@@ -286,5 +286,5 @@ class SettingsDialog(QDialog):
     def _on_check_updates(self):
         QMessageBox.information(
             self, "Check for Updates",
-            "Echelon v2.0 \u2014 You\u2019re up to date!"
+            "Dark-Army v1.0 \u2014 You\u2019re up to date!"
         )
