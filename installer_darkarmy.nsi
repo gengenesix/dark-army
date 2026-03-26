@@ -1,6 +1,5 @@
 ; ═══════════════════════════════════════════════════════════════════
-; Dark-Army Windows Installer
-; Face Swap + Voice Changer — by Zero
+; Dark-Army Windows Installer — Clean, no custom functions
 ; ═══════════════════════════════════════════════════════════════════
 
 Unicode True
@@ -20,20 +19,18 @@ OutFile "DarkArmy-Setup.exe"
 InstallDir "${INSTALL_DIR}"
 InstallDirRegKey HKLM "${REG_INSTALL_KEY}" "Install_Dir"
 RequestExecutionLevel admin
-
 BrandingText "Dark-Army by Zero"
 ShowInstDetails show
-ShowUninstDetails show
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 !include "LogicLib.nsh"
 
 !define MUI_ABORTWARNING
-!define MUI_ICON                "assets\icons\echelon.ico"
-!define MUI_UNICON              "assets\icons\echelon.ico"
+!define MUI_ICON                "assets\icons\darkarmy.ico"
+!define MUI_UNICON              "assets\icons\darkarmy.ico"
 !define MUI_WELCOMEPAGE_TITLE   "Welcome to Dark-Army v${APP_VERSION}"
-!define MUI_WELCOMEPAGE_TEXT    "Dark-Army combines real-time face swap AND voice changer in one app.$\r$\n$\r$\nWorks with Discord, Zoom, Google Meet, Teams, and OBS.$\r$\n$\r$\nCreated by Zero."
+!define MUI_WELCOMEPAGE_TEXT    "Dark-Army combines real-time face swap AND voice changer.$\r$\n$\r$\nWorks with Discord, Zoom, Google Meet, Teams, and OBS.$\r$\n$\r$\nCreated by Zero."
 !define MUI_FINISHPAGE_RUN      "$INSTDIR\${APP_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "Launch Dark-Army now"
 !define MUI_FINISHPAGE_LINK     "github.com/gengenesix/dark-army"
@@ -66,25 +63,21 @@ FunctionEnd
 Section "DarkArmy" SecMain
   SectionIn RO
 
-  ; ── Kill any running instance silently ──
   nsExec::Exec 'cmd /c taskkill /F /IM "${APP_EXE}" /T 2>nul 1>nul'
   Pop $0
-  Sleep 1500
+  Sleep 2000
 
-  ; ── Run previous uninstaller silently ──
-  ReadRegStr $R3 HKLM "${UNINSTALL_KEY}" "QuietUninstallString"
-  ${If} $R3 != ""
-    ExecWait '$R3' $R4
-    Sleep 1000
+  ReadRegStr $R0 HKLM "${UNINSTALL_KEY}" "QuietUninstallString"
+  ${If} $R0 != ""
+    ExecWait '$R0'
+    Sleep 1500
   ${EndIf}
 
-  ; ── Clear previous install dir ──
   ${If} ${FileExists} "$INSTDIR\*.*"
     RMDir /r "$INSTDIR"
     Sleep 500
   ${EndIf}
 
-  ; ── Install VC++ Redist ──
   DetailPrint "Checking Visual C++ Runtime..."
   Call CheckVCRedistInstalled
   Pop $0
@@ -94,15 +87,14 @@ Section "DarkArmy" SecMain
     ClearErrors
     File "vc_redist.x64.exe"
     ${IfNot} ${Errors}
-      ExecWait '"$TEMP\DarkArmySetup\vc_redist.x64.exe" /quiet /norestart' $1
+      ExecWait '"$TEMP\DarkArmySetup\vc_redist.x64.exe" /quiet /norestart'
       Delete "$TEMP\DarkArmySetup\vc_redist.x64.exe"
       RMDir "$TEMP\DarkArmySetup"
     ${EndIf}
   ${Else}
-    DetailPrint "VC++ Runtime already installed."
+    DetailPrint "Visual C++ Runtime already installed."
   ${EndIf}
 
-  ; ── Extract app files ──
   DetailPrint "Installing Dark-Army ${APP_VERSION}..."
   SetOverwrite on
   ClearErrors
@@ -111,22 +103,21 @@ Section "DarkArmy" SecMain
 
   ${If} ${Errors}
     RMDir /r "$INSTDIR"
-    MessageBox MB_OK|MB_ICONSTOP "Installation failed. Please run as Administrator and check antivirus settings."
+    MessageBox MB_OK|MB_ICONSTOP "Installation failed: could not write files.$\r$\nPlease run as Administrator and disable antivirus temporarily."
     Abort
   ${EndIf}
 
-  ; ── Registry ──
-  WriteRegStr   HKLM "${REG_INSTALL_KEY}"   "Install_Dir"           "$INSTDIR"
-  WriteRegStr   HKLM "${UNINSTALL_KEY}"     "DisplayName"           "${APP_NAME}"
-  WriteRegStr   HKLM "${UNINSTALL_KEY}"     "UninstallString"       '"$INSTDIR\uninstall.exe"'
-  WriteRegStr   HKLM "${UNINSTALL_KEY}"     "QuietUninstallString"  '"$INSTDIR\uninstall.exe" /S'
-  WriteRegStr   HKLM "${UNINSTALL_KEY}"     "InstallLocation"       "$INSTDIR"
-  WriteRegStr   HKLM "${UNINSTALL_KEY}"     "DisplayIcon"           "$INSTDIR\${APP_EXE},0"
-  WriteRegStr   HKLM "${UNINSTALL_KEY}"     "Publisher"             "${APP_PUBLISHER}"
-  WriteRegStr   HKLM "${UNINSTALL_KEY}"     "DisplayVersion"        "${APP_VERSION}"
-  WriteRegStr   HKLM "${UNINSTALL_KEY}"     "URLInfoAbout"          "https://github.com/gengenesix/dark-army"
-  WriteRegDWORD HKLM "${UNINSTALL_KEY}"     "NoModify"              1
-  WriteRegDWORD HKLM "${UNINSTALL_KEY}"     "NoRepair"              1
+  WriteRegStr   HKLM "${REG_INSTALL_KEY}"  "Install_Dir"          "$INSTDIR"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}"    "DisplayName"          "Dark-Army"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}"    "UninstallString"      '"$INSTDIR\uninstall.exe"'
+  WriteRegStr   HKLM "${UNINSTALL_KEY}"    "QuietUninstallString" '"$INSTDIR\uninstall.exe" /S'
+  WriteRegStr   HKLM "${UNINSTALL_KEY}"    "InstallLocation"      "$INSTDIR"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}"    "DisplayIcon"          "$INSTDIR\${APP_EXE},0"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}"    "Publisher"            "${APP_PUBLISHER}"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}"    "DisplayVersion"       "${APP_VERSION}"
+  WriteRegStr   HKLM "${UNINSTALL_KEY}"    "URLInfoAbout"         "https://github.com/gengenesix/dark-army"
+  WriteRegDWORD HKLM "${UNINSTALL_KEY}"    "NoModify"             1
+  WriteRegDWORD HKLM "${UNINSTALL_KEY}"    "NoRepair"             1
 
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
