@@ -28,8 +28,8 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 QFrame#sidebar {
     background: #0D0E14;
     border-right: 1px solid #1E1F2E;
-    min-width: 268px;
-    max-width: 268px;
+    min-width: 296px;
+    max-width: 296px;
 }
 
 /* Header */

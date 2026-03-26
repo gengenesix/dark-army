@@ -17,7 +17,7 @@ class OnboardingDialog(QDialog):
     def __init__(self, config: AppConfig, parent=None):
         super().__init__(parent)
         self.config = config
-        self.setWindowTitle("Welcome to Dark-Army")
+        self.setWindowTitle("Welcome to Echelon")
         self.setFixedSize(540, 520)
         self.setModal(True)
         self._downloader = None
@@ -29,7 +29,7 @@ class OnboardingDialog(QDialog):
         layout.setContentsMargins(32, 28, 32, 24)
         layout.setSpacing(14)
 
-        title = QLabel("Welcome to Dark-Army")
+        title = QLabel("Welcome to Echelon")
         title.setStyleSheet("color: #E8E9F0; font-size: 20px; font-weight: 700; background: transparent;")
         layout.addWidget(title)
 
@@ -51,8 +51,8 @@ class OnboardingDialog(QDialog):
 
         # Model row
         self._model_row = self._make_check_row(
-            "Face Swap Model",
-            "inswapper_128.onnx (~554 MB, one-time download)"
+            "AI Models (Face Swap + Detection)",
+            "inswapper_128.onnx + buffalo_l (~600 MB total, one-time)"
         )
         self._progress = QProgressBar()
         self._progress.setVisible(False)
@@ -127,7 +127,7 @@ class OnboardingDialog(QDialog):
         ok = os.path.exists('/dev/video10')
         row = self._vcam_row
         if ok:
-            self._set_row_ok(row, "Dark-Army Camera device ready")
+            self._set_row_ok(row, "Echelon Camera device ready")
         else:
             self._set_row_fail(row, "Not found — click Fix to install")
             self._connect_btn(row["btn"], self._fix_vcam)
@@ -141,7 +141,7 @@ class OnboardingDialog(QDialog):
             subprocess.run(
                 ['sudo', 'modprobe', 'v4l2loopback',
                  'devices=1', 'video_nr=10',
-                 'card_label=Dark-Army Camera', 'exclusive_caps=1'],
+                 'card_label=Echelon Camera', 'exclusive_caps=1'],
                 check=True, timeout=15
             )
         except Exception as e:
@@ -151,15 +151,32 @@ class OnboardingDialog(QDialog):
         self._check_vcam()
 
     # ── Model ────────────────────────────────────────
+    def _models_ready(self) -> bool:
+        """Check that BOTH inswapper AND buffalo_l detection models exist."""
+        models_path = Path(self.config.models_dir)
+        inswapper_ok = (models_path / "inswapper_128.onnx").exists()
+        buffalo_path = models_path / "models" / "buffalo_l"
+        buffalo_ok = buffalo_path.exists() and len(list(buffalo_path.glob("*.onnx"))) >= 3
+        return inswapper_ok and buffalo_ok
+
     def _check_model(self):
-        path = Path(self.config.models_dir) / "inswapper_128.onnx"
         row = self._model_row
-        if path.exists():
-            self._set_row_ok(row, "inswapper_128.onnx ready")
+        if self._models_ready():
+            self._set_row_ok(row, "All AI models ready (face swap + detection)")
         else:
-            self._set_row_fail(row, "Not downloaded yet (~554 MB)")
+            models_path = Path(self.config.models_dir)
+            inswapper_ok = (models_path / "inswapper_128.onnx").exists()
+            buffalo_path = models_path / "models" / "buffalo_l"
+            buffalo_ok = buffalo_path.exists() and len(list(buffalo_path.glob("*.onnx"))) >= 3
+            if not inswapper_ok and not buffalo_ok:
+                desc = "Face swap + detection models needed (~600 MB total, one-time)"
+            elif not inswapper_ok:
+                desc = "Face swap model needed: inswapper_128.onnx (~554 MB)"
+            else:
+                desc = "Face detection models needed: buffalo_l (~46 MB)"
+            self._set_row_fail(row, desc)
             self._connect_btn(row["btn"], self._download_model)
-            row["btn"].setText("Download")
+            row["btn"].setText("Download All")
         self._update_continue()
 
     def _download_model(self):
@@ -224,7 +241,7 @@ class OnboardingDialog(QDialog):
         btn.clicked.connect(slot)
 
     def _update_continue(self):
-        model_ok = (Path(self.config.models_dir) / "inswapper_128.onnx").exists()
+        model_ok = self._models_ready()
         cap = cv2.VideoCapture(0)
         cam_ok = cap.isOpened()
         cap.release()
