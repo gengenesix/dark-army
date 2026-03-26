@@ -74,15 +74,17 @@ class VoicePanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        # ── Server Status ──────────────────────────────────────────────────
-        server_card = SectionCard("Voice Server")
+        # ── Voice Engine Status ────────────────────────────────────────────
+        server_card = SectionCard("Voice Engine (RVC)")
 
-        self._server_status = QLabel("● Not installed")
-        self._server_status.setStyleSheet("color: #FF4D7A; font-weight: 600; font-size: 12px;")
+        self._server_status = QLabel("● Checking...")
+        self._server_status.setStyleSheet("color: #6B7094; font-weight: 600; font-size: 12px;")
+        self._server_status.setWordWrap(True)
         server_card.add_widget(self._server_status)
 
-        self._download_server_btn = QPushButton("⬇  Download Voice Server")
-        self._download_server_btn.setMinimumHeight(32)
+        self._download_server_btn = QPushButton("⬇  Install Voice Engine")
+        self._download_server_btn.setMinimumHeight(34)
+        self._download_server_btn.setToolTip("Installs rvc-python for real-time voice conversion")
         self._download_server_btn.clicked.connect(self._on_download_server)
         server_card.add_widget(self._download_server_btn)
 
@@ -90,6 +92,12 @@ class VoicePanel(QWidget):
         self._server_progress.setFixedHeight(4)
         self._server_progress.setVisible(False)
         server_card.add_widget(self._server_progress)
+
+        # Info label
+        info = QLabel("Voice engine uses RVC (Retrieval Voice Conversion) for high-quality real-time conversion.")
+        info.setWordWrap(True)
+        info.setStyleSheet("color: #6B7094; font-size: 10px; padding: 2px 0;")
+        server_card.add_widget(info)
 
         layout.addWidget(server_card)
 

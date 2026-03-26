@@ -9,6 +9,11 @@ from PyQt6.QtGui import QKeySequence, QShortcut, QPixmap, QIcon
 from config.manager import AppConfig, ConfigManager
 from core.hardware import HardwareInfo
 from utils.resource_path import resource_path
+from ui.voice_panel import VoicePanel
+from core.voice_changer.vc_server import VCServerManager
+from core.voice_changer.audio_pipeline import AudioPipeline
+from core.voice_changer.model_manager import ModelManager
+
 from core.face_detector import FaceDetector, DetectedFace
 from core.capture import CameraCapture
 from core.pipeline import EchelonPipeline
@@ -97,6 +102,23 @@ class MainWindow(QMainWindow):
         self._pending_gallery_save_name = None
         self.tray = None
         self.face_gallery = FaceGallery(config.data_dir)
+
+        # Voice changer components
+        self._vc_server = VCServerManager(
+            config.data_dir,
+            on_status=self._on_vc_server_status,
+            on_ready=self._on_vc_server_ready,
+            on_error=self._on_vc_error,
+        )
+        self._vc_audio = AudioPipeline(
+            vc_server=self._vc_server,
+            input_device=config.vc_input_device if config.vc_input_device >= 0 else None,
+            output_device=config.vc_output_device if config.vc_output_device >= 0 else None,
+            on_latency=self._on_vc_latency,
+            on_status=self._on_vc_audio_status,
+            on_error=self._on_vc_error,
+        )
+        self._vc_models = ModelManager(config.data_dir)
         self._setup_window()
         self._setup_ui()
         self._setup_connections()
@@ -542,3 +564,69 @@ class MainWindow(QMainWindow):
         self.config.window_y = pos.y()
         self.config.window_width = size.width()
         self.config.window_height = size.height()
+
+    # ── Voice Changer handlers ────────────────────────────────────────────────
+
+    def _on_vc_start(self):
+        if not self._vc_server.is_installed():
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Voice Engine Required",
+                "The voice engine (rvc-python) is not installed.\n\n"
+                "Go to the Voice tab and click 'Install Voice Engine'.")
+            return
+        if not self._vc_server.is_running():
+            self._vc_server.start()
+        else:
+            self._vc_audio.start()
+
+    def _on_vc_stop(self):
+        self._vc_audio.stop()
+        self._vc_server.stop()
+        self.config.vc_enabled = False
+
+    def _on_vc_server_ready(self):
+        self._vc_audio.start()
+        self.config.vc_enabled = True
+
+    def _on_vc_server_status(self, status: str):
+        if hasattr(self, 'voice_panel'):
+            self.voice_panel.update_server_status(status)
+
+    def _on_vc_audio_status(self, status: str):
+        pass
+
+    def _on_vc_latency(self, ms: float):
+        if hasattr(self, 'voice_panel'):
+            self.voice_panel.update_vc_latency(ms)
+
+    def _on_vc_error(self, msg: str):
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("Voice Changer")
+        dlg.setText(msg)
+        dlg.setIcon(QMessageBox.Icon.Warning)
+        dlg.setStyleSheet("QMessageBox { background: #0A0B0F; color: #E8E9F0; } QLabel { color: #E8E9F0; font-size: 13px; } QPushButton { background: #161722; color: #E8E9F0; border: 1px solid #252636; border-radius: 6px; padding: 6px 16px; }")
+        dlg.exec()
+
+    def _on_vc_pitch_changed(self, val: int):
+        self.config.vc_pitch_shift = val
+        self._vc_audio.set_pitch(val)
+
+    def _on_vc_model_changed(self, path: str):
+        self.config.vc_model_path = path
+        if self._vc_server.is_ready():
+            self._vc_server.load_model(path)
+
+    def _on_vc_input_device(self, device_id: int):
+        self.config.vc_input_device = device_id
+        self._vc_audio.input_device = device_id
+
+    def _on_vc_output_device(self, device_id: int):
+        self.config.vc_output_device = device_id
+        self._vc_audio.output_device = device_id
+
+    def _cleanup_voice(self):
+        try:
+            self._vc_audio.stop()
+            self._vc_server.stop()
+        except Exception:
+            pass

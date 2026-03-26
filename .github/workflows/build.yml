@@ -241,7 +241,7 @@ jobs:
           Section: video
           Priority: optional
           Architecture: amd64
-          Depends: libgl1, libglib2.0-0, libxcb-xinerama0, libportaudio2
+          Depends: libgl1, libglib2.0-0, libxcb-xinerama0
           Maintainer: Zero <zero@darkarmy.app>
           Description: Real-time face swap + voice changer
            Dark-Army lets you swap your face AND change your voice in real-time.
@@ -249,6 +249,10 @@ jobs:
           EOF
           cat > "${PKG}/DEBIAN/postinst" << 'EOF'
           #!/bin/bash
+          # Auto-install audio runtime if missing (needed for voice changer)
+          if ! dpkg -l libportaudio2 2>/dev/null | grep -q "^ii"; then
+            apt-get install -y libportaudio2 2>/dev/null || true
+          fi
           modprobe v4l2loopback devices=1 video_nr=10 card_label="DarkArmy Camera" exclusive_caps=1 2>/dev/null || true
           update-desktop-database /usr/share/applications 2>/dev/null || true
           echo "Dark-Army installed successfully"
